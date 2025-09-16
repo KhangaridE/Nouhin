@@ -63,6 +63,27 @@ def load_delivery_logs():
         st.error(f"Error loading delivery logs: {e}")
         return {}
 
+def clear_delivery_history():
+    """Clear all delivery history from GitHub repository"""
+    try:
+        from delivery_logs_manager import DeliveryLogsManager
+        logs_manager = DeliveryLogsManager()
+        
+        # Save empty logs (clear everything)
+        empty_logs = {}
+        success = logs_manager.save_logs(empty_logs)
+        
+        if success:
+            st.info("🗑️ All delivery history has been cleared from GitHub repository")
+            return True
+        else:
+            st.error("❌ Failed to clear delivery history")
+            return False
+            
+    except Exception as e:
+        st.error(f"Error clearing delivery history: {e}")
+        return False
+
 def display_delivery_history(logs):
     """Display delivery history in Streamlit"""
     if not logs:
@@ -197,16 +218,16 @@ def main():
         # else:
         #     st.warning("⚠️ No Default Channel")
         
-        st.markdown("---")
+        # st.markdown("---")
         
         # Scheduler status and controls
-        st.subheader("⏰ Scheduler")
+        # st.subheader("⏰ Scheduler")
         
         # Always use GitHub Actions scheduler - more reliable than local
-        st.info("☁️ GitHub Actions Scheduler")
-        st.caption("Automatic scheduling via GitHub Actions")
-        st.caption("Checks every 15 minutes for scheduled reports")
-        st.caption("Runs 24/7 in the cloud - no need to keep your computer on!")
+        # st.info("☁️ GitHub Actions Scheduler")
+        # st.caption("Automatic scheduling via GitHub Actions")
+        # st.caption("Checks every 15 minutes for scheduled reports")
+        # st.caption("Runs 24/7 in the cloud - no need to keep your computer on!")
         
         # Show count of scheduled reports
         try:
@@ -235,11 +256,11 @@ def main():
             st.caption(f"⚠️ Could not load report count: {e}")
         
         # GitHub Actions status check
-        st.markdown("---")
-        st.caption("🔍 **Check Status:**")
-        st.caption("• GitHub repo → Actions tab → Recent runs")
-        st.caption("• Email notifications for success/failure")
-        st.caption("• Slack messages appear automatically")
+        # st.markdown("---")
+        # st.caption("🔍 **Check Status:**")
+        # st.caption("• GitHub repo → Actions tab → Recent runs")
+        # st.caption("• Email notifications for success/failure")
+        # st.caption("• Slack messages appear automatically")
     
     # Route to different pages
     if st.session_state.current_page == "Delivery List":
@@ -1038,6 +1059,21 @@ def delivery_reports_page():
     with col4:
         st.metric("⏭️ Skipped", skipped_count)
     
+    st.markdown("---")
+    
+    # Clear History Button
+    # st.subheader("🗑️ Clear Delivery History")
+    if st.button("🗑️ Clear All History", type="secondary", help="Permanently delete all delivery logs"):
+            if clear_delivery_history():
+                st.success("✅ Delivery history cleared successfully!")
+                st.rerun()
+            else:
+                st.error("❌ Failed to clear delivery history. Please try again.")
+    
+    st.warning("⚠️ This action will permanently delete all delivery history from the GitHub repository!")
+
+
+
     st.markdown("---")
     
     # Time Range Selector
