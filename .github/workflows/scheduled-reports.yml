@@ -37,7 +37,11 @@ jobs:
     - name: Send scheduled reports
       env:
         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        DEFAULT_CHANNEL_ID: ${{ secrets.DEFAULT_CHANNEL_ID }}
+        DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID: ${{ secrets.DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPO_OWNER: ${{ secrets.GITHUB_REPO_OWNER }}
+        GITHUB_REPO_NAME: ${{ secrets.GITHUB_REPO_NAME }}
+        GITHUB_BRANCH: ${{ secrets.GITHUB_BRANCH }}
         GITHUB_ACTIONS: true
       run: |
         python cron_sender.py

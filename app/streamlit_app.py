@@ -1014,13 +1014,13 @@ def delivery_reports_page():
         st.subheader("🚀 How to Generate Delivery Reports")
         st.markdown("""
         **Delivery reports are generated automatically when:**
-        1. **GitHub Actions runs** every hour (if reports are scheduled)
+        1. **GitHub Actions runs** every 15 minutes (if reports are scheduled)
         2. **You manually trigger** GitHub Actions workflow
         3. **Scheduled reports are sent** via the automation system
         
         **To see activity:**
         - Create reports in 'Report Management' with scheduling enabled
-        - Wait for the next hour, or manually trigger the workflow
+        - Wait for the next 15 minutes, or manually trigger the workflow
         - Check back here to see delivery results!
         """)
         return
