@@ -1,6 +1,6 @@
 # Nouhin - Slack Delivery System
 
-A web-based Slack delivery system with Streamlit interface and automatic scheduling.
+<!-- A web-based Slack delivery system with Streamlit interface and automatic scheduling.
 
 ## Features
 
@@ -92,4 +92,4 @@ See [SCHEDULING_SETUP.md](SCHEDULING_SETUP.md) for detailed setup instructions.
 - **With Scheduler**: `python run.py`
 - **Check Status**: `python check_scheduler.py`
 
-See [README_APP.md](README_APP.md) for detailed documentation.
+See [README_APP.md](README_APP.md) for detailed documentation. -->
