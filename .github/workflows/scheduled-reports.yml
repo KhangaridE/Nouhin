@@ -2,8 +2,8 @@ name: Scheduled Report Delivery
 
 on:
   schedule:
-    # Run every hour to check for scheduled reports
-    - cron: '0 * * * *'
+    # Run every 15 minutes to check for scheduled reports
+    - cron: '0,15,30,45 * * * *'
   workflow_dispatch: # Allow manual triggering
   push:
     branches: [ with_scheduler ]  # Only run on with_scheduler branch

@@ -18,7 +18,8 @@ except ImportError:
 import streamlit as st
 import os
 import sys
-from datetime import datetime
+import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # Add the delivery module to Python path
@@ -52,6 +53,107 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+def load_delivery_logs():
+    """Load delivery logs from GitHub repository"""
+    try:
+        from delivery_logs_manager import DeliveryLogsManager
+        logs_manager = DeliveryLogsManager()
+        return logs_manager.load_logs()
+    except Exception as e:
+        st.error(f"Error loading delivery logs: {e}")
+        return {}
+
+def display_delivery_history(logs):
+    """Display delivery history in Streamlit"""
+    if not logs:
+        st.info("📝 No delivery history yet")
+        return
+    
+    # Get last 7 days of logs
+    end_date = datetime.now()
+    dates_to_show = []
+    for i in range(7):
+        date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        dates_to_show.append(date)
+    
+    total_entries = 0
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+    
+    # Display logs in reverse chronological order (newest first)
+    for date in dates_to_show:
+        if date in logs and logs[date]:
+            # Sort entries by timestamp (newest first)
+            entries = sorted(logs[date], key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+            st.write(f"**📅 {date}**")
+            
+            for entry in entries:
+                total_entries += 1
+                status = entry.get('status', 'unknown')
+                report_name = entry.get('report_name', entry.get('report_id', 'Unknown'))
+                report_id = entry.get('report_id', 'Unknown')
+                scheduled_time = entry.get('scheduled_time', '')
+                timestamp = entry.get('timestamp', '')
+                log_id = entry.get('log_id', '')
+                
+                # Parse time for display
+                try:
+                    time_str = datetime.fromisoformat(timestamp.replace('Z', '+00:00')).strftime('%H:%M:%S')
+                except:
+                    time_str = scheduled_time
+                
+                # Create expandable entry with more details
+                with st.expander(f"{time_str} - {report_name} ({report_id})", expanded=False):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write(f"**Report ID:** {report_id}")
+                        st.write(f"**Log ID:** {log_id}")
+                        st.write(f"**Scheduled Time:** {scheduled_time}")
+                        st.write(f"**Execution Time:** {time_str}")
+                    
+                    with col2:
+                        # Display based on status
+                        if status == 'success':
+                            success_count += 1
+                            message = entry.get('message', 'Sent successfully')
+                            st.success(f"✅ **Status:** Success")
+                            st.write(f"**Message:** {message}")
+                        elif status == 'failed':
+                            failed_count += 1
+                            error = entry.get('error', 'Unknown error')
+                            st.error(f"❌ **Status:** Failed")
+                            st.write(f"**Error:** {error}")
+                        elif status == 'skipped':
+                            skipped_count += 1
+                            message = entry.get('message', 'Skipped')
+                            st.info(f"⏭️ **Status:** Skipped")
+                            st.write(f"**Reason:** {message}")
+                        else:
+                            st.warning(f"❓ **Status:** {status}")
+                            if entry.get('message'):
+                                st.write(f"**Message:** {entry.get('message')}")
+                            if entry.get('error'):
+                                st.write(f"**Error:** {entry.get('error')}")
+            
+            st.markdown("---")
+    
+    if total_entries == 0:
+        st.info("📝 No deliveries in the last 7 days")
+    else:
+        # Show summary statistics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total", total_entries)
+        with col2:
+            st.metric("✅ Success", success_count)
+        with col3:
+            st.metric("❌ Failed", failed_count)
+        with col4:
+            st.metric("⏭️ Skipped", skipped_count)
+
 def main():
     """Main Streamlit application"""
     
@@ -76,6 +178,9 @@ def main():
         if st.button("Custom Delivery (カスタム配送)", use_container_width=True):
             st.session_state.current_page = "Custom Delivery"
         
+        if st.button("Delivery Reports (配送レポート)", use_container_width=True):
+            st.session_state.current_page = "Delivery Reports"
+        
         st.markdown("---")
         
         # Environment status
@@ -97,56 +202,44 @@ def main():
         # Scheduler status and controls
         st.subheader("⏰ Scheduler")
         
-        # Check if running on Streamlit Cloud or with GitHub Actions
-        is_cloud_deployment = os.getenv('STREAMLIT_CLOUD') or os.getenv('GITHUB_ACTIONS') or not os.path.exists(Path(__file__).parent / 'scheduler.py')
+        # Always use GitHub Actions scheduler - more reliable than local
+        st.info("☁️ GitHub Actions Scheduler")
+        st.caption("Automatic scheduling via GitHub Actions")
+        st.caption("Checks every 15 minutes for scheduled reports")
+        st.caption("Runs 24/7 in the cloud - no need to keep your computer on!")
         
-        if is_cloud_deployment:
-            # Show GitHub Actions scheduler status
-            st.info("☁️ GitHub Actions Scheduler")
-            st.caption("Automatic scheduling via GitHub Actions")
-            st.caption("Checks every hour for scheduled reports")
-            
-            # Show count of scheduled reports
-            try:
-                from report_manager import report_manager
-                reports = report_manager.load_reports()
-                scheduled_count = sum(1 for r in reports.values() if r.get('schedule_enabled', False))
-                if scheduled_count > 0:
-                    st.success(f"✅ {scheduled_count} reports scheduled")
-                else:
-                    st.info("📝 No reports scheduled yet")
-            except:
-                pass
+        # Show count of scheduled reports
+        try:
+            from report_manager import report_manager
+            reports = report_manager.load_reports()
+            scheduled_count = sum(1 for r in reports.values() if r.get('schedule_enabled', False))
+            if scheduled_count > 0:
+                st.success(f"✅ {scheduled_count} reports scheduled")
                 
-        else:
-            # Local scheduler controls (for local development)
-            try:
-                from scheduler import report_scheduler, get_scheduler_status, start_report_scheduler, stop_report_scheduler, refresh_report_schedules
+                # Show next scheduled times
+                from datetime import datetime, time
+                current_hour = datetime.now().hour
+                scheduled_times = []
+                for r in reports.values():
+                    if r.get('schedule_enabled', False):
+                        schedule_time = r.get('schedule_time', '09:00')
+                        scheduled_times.append(schedule_time)
                 
-                status = get_scheduler_status()
-                
-                if status['running']:
-                    st.success("✅ Local Scheduler Running")
-                    st.caption(f"📊 {len(status['scheduled_jobs'])} jobs scheduled")
-                    
-                    if st.button("🛑 Stop Scheduler", use_container_width=True):
-                        stop_report_scheduler()
-                        st.rerun()
-                        
-                    if st.button("🔄 Refresh Schedules", use_container_width=True):
-                        refresh_report_schedules()
-                        st.success("Schedules refreshed!")
-                        
-                else:
-                    st.error("❌ Local Scheduler Stopped")
-                    if st.button("🚀 Start Scheduler", use_container_width=True):
-                        start_report_scheduler()
-                        st.rerun()
-                        
-            except ImportError:
-                st.warning("⚠️ Local scheduler not available")
-            except Exception as e:
-                st.error(f"❌ Local scheduler error: {e}")
+                if scheduled_times:
+                    unique_times = sorted(list(set(scheduled_times)))
+                    st.caption(f"📅 Scheduled at: {', '.join(unique_times)}")
+            else:
+                st.info("📝 No reports scheduled yet")
+                st.caption("� Create reports in 'Report Management' and enable scheduling")
+        except Exception as e:
+            st.caption(f"⚠️ Could not load report count: {e}")
+        
+        # GitHub Actions status check
+        st.markdown("---")
+        st.caption("🔍 **Check Status:**")
+        st.caption("• GitHub repo → Actions tab → Recent runs")
+        st.caption("• Email notifications for success/failure")
+        st.caption("• Slack messages appear automatically")
     
     # Route to different pages
     if st.session_state.current_page == "Delivery List":
@@ -155,6 +248,8 @@ def main():
         delivery_parameters_page()
     elif st.session_state.current_page == "Custom Delivery":
         custom_delivery_page()
+    elif st.session_state.current_page == "Delivery Reports":
+        delivery_reports_page()
 
 def delivery_section_page():
     """First page - Delivery List with daily reports list"""
@@ -187,6 +282,35 @@ def delivery_section_page():
                             st.code(report['link'])
                         else:
                             st.code("(No link)")
+                    
+                    # Add delivery statistics row
+                    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+                    
+                    with stat_col1:
+                        delivery_count = report.get('delivery_count', 0)
+                        st.metric("📊 Total Deliveries", delivery_count)
+                    
+                    with stat_col2:
+                        last_delivered = report.get('last_delivered')
+                        if last_delivered:
+                            try:
+                                last_date = datetime.fromisoformat(last_delivered).strftime('%m/%d %H:%M')
+                                st.metric("📅 Last Delivered", last_date)
+                            except:
+                                st.metric("📅 Last Delivered", "Invalid date")
+                        else:
+                            st.metric("📅 Last Delivered", "Never")
+                    
+                    with stat_col3:
+                        status = report.get('status', 'active')
+                        status_emoji = "🟢" if status == 'active' else "🔴" if status == 'inactive' else "📦"
+                        st.metric("🔄 Status", f"{status_emoji} {status.title()}")
+                    
+                    with stat_col4:
+                        schedule_enabled = report.get('schedule_enabled', False)
+                        schedule_emoji = "⏰" if schedule_enabled else "📝"
+                        schedule_text = "Scheduled" if schedule_enabled else "Manual"
+                        st.metric("⚙️ Mode", f"{schedule_emoji} {schedule_text}")
                             
                         
                     
@@ -334,13 +458,6 @@ def delivery_parameters_page():
                         
                         report_id = report_manager.add_report(new_report)
                         if report_id:
-                            # Refresh scheduler if report has scheduling enabled
-                            try:
-                                from scheduler import refresh_report_schedules
-                                refresh_report_schedules()
-                            except ImportError:
-                                pass
-                            
                             st.success(f"✅ Report '{report_name}' created successfully with ID: {report_id}!")
                             st.session_state.creating_report = False
                             st.rerun()
@@ -432,13 +549,6 @@ def delivery_parameters_page():
                         
                         success = report_manager.update_report(st.session_state.editing_report, updated_report)
                         if success:
-                            # Refresh scheduler when report is updated
-                            try:
-                                from scheduler import refresh_report_schedules
-                                refresh_report_schedules()
-                            except ImportError:
-                                pass
-                                
                             st.success(f"✅ Report '{name.strip()}' updated successfully!")
                             st.session_state.editing_report = None
                             st.rerun()
@@ -461,13 +571,6 @@ def delivery_parameters_page():
                 if delete_clicked:
                     success = report_manager.delete_report(st.session_state.editing_report)
                     if success:
-                        # Refresh scheduler when report is deleted
-                        try:
-                            from scheduler import refresh_report_schedules
-                            refresh_report_schedules()
-                        except ImportError:
-                            pass
-                            
                         st.success(f"✅ Report '{st.session_state.editing_report}' deleted successfully!")
                         st.session_state.editing_report = None
                         st.rerun()
@@ -875,6 +978,205 @@ def handle_form_submission(author, receiver, link, uploaded_file, raw_data_link,
         # Show results
         st.subheader("📊 Delivery Results")
         display_delivery_results(result)
+
+def delivery_reports_page():
+    """Fourth page - Delivery Reports and History"""
+    st.header("📊 Delivery Reports")
+    st.markdown("View delivery history, statistics, and GitHub Actions status.")
+    
+    # Load delivery logs
+    delivery_logs = load_delivery_logs()
+    
+    if not delivery_logs:
+        st.info("📝 No delivery history yet. Deliveries will appear here after GitHub Actions runs.")
+        st.markdown("---")
+        st.subheader("🚀 How to Generate Delivery Reports")
+        st.markdown("""
+        **Delivery reports are generated automatically when:**
+        1. **GitHub Actions runs** every hour (if reports are scheduled)
+        2. **You manually trigger** GitHub Actions workflow
+        3. **Scheduled reports are sent** via the automation system
+        
+        **To see activity:**
+        - Create reports in 'Report Management' with scheduling enabled
+        - Wait for the next hour, or manually trigger the workflow
+        - Check back here to see delivery results!
+        """)
+        return
+    
+    # Summary Statistics
+    st.subheader("📈 Summary Statistics")
+    
+    # Calculate overall stats
+    total_deliveries = 0
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+    
+    for date, entries in delivery_logs.items():
+        for entry in entries:
+            total_deliveries += 1
+            status = entry.get('status', 'unknown')
+            if status == 'success':
+                success_count += 1
+            elif status == 'failed':
+                failed_count += 1
+            elif status == 'skipped':
+                skipped_count += 1
+    
+    # Display summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Deliveries", total_deliveries)
+    with col2:
+        st.metric("✅ Successful", success_count)
+        if total_deliveries > 0:
+            success_rate = (success_count / total_deliveries) * 100
+            st.caption(f"{success_rate:.1f}% success rate")
+    with col3:
+        st.metric("❌ Failed", failed_count)
+    with col4:
+        st.metric("⏭️ Skipped", skipped_count)
+    
+    st.markdown("---")
+    
+    # Time Range Selector
+    st.subheader("📅 Delivery History")
+    
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        days_to_show = st.selectbox(
+            "Select time range:",
+            options=[3, 7, 14, 30],
+            index=1,  # Default to 7 days
+            format_func=lambda x: f"Last {x} days"
+        )
+    
+    with col2:
+        st.write("**Filter by status:**")
+        show_success = st.checkbox("✅ Success", value=True)
+        show_failed = st.checkbox("❌ Failed", value=True)
+        show_skipped = st.checkbox("⏭️ Skipped", value=True)
+    
+    # Display filtered delivery history
+    display_filtered_delivery_history(delivery_logs, days_to_show, show_success, show_failed, show_skipped)
+    
+    st.markdown("---")
+    
+    # GitHub Actions Status
+    st.subheader("🔧 GitHub Actions Status")
+    st.info("☁️ GitHub Actions Scheduler - Automatic scheduling via GitHub Actions")
+    st.caption("Checks every hour for scheduled reports and runs 24/7 in the cloud")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**🔍 Check Live Status:**")
+        st.markdown("• [GitHub Actions](https://github.com/KhangaridE/Nouhin/actions) - View recent runs")
+        st.markdown("• Email notifications for success/failure")
+        st.markdown("• Slack messages appear automatically")
+    
+    with col2:
+        st.markdown("**📊 Scheduled Reports:**")
+        try:
+            from report_manager import report_manager
+            reports = report_manager.load_reports()
+            scheduled_reports = [r for r in reports.values() if r.get('schedule_enabled', False)]
+            
+            if scheduled_reports:
+                for report in scheduled_reports:
+                    name = report.get('name', 'Unknown')
+                    time = report.get('schedule_time', '09:00')
+                    st.markdown(f"• **{name}** at {time}")
+            else:
+                st.markdown("• No reports scheduled")
+                st.caption("Enable scheduling in Report Management")
+        except:
+            st.markdown("• Could not load scheduled reports")
+
+def display_filtered_delivery_history(logs, days_to_show, show_success, show_failed, show_skipped):
+    """Display delivery history with filters applied"""
+    if not logs:
+        st.info("📝 No delivery history available")
+        return
+    
+    # Get date range
+    end_date = datetime.now()
+    dates_to_show = []
+    for i in range(days_to_show):
+        date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        dates_to_show.append(date)
+    
+    # Filter and display logs
+    total_shown = 0
+    
+    for date in dates_to_show:
+        if date in logs and logs[date]:
+            # Sort entries by timestamp (newest first)
+            entries = sorted(logs[date], key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+            # Filter entries based on status
+            filtered_entries = []
+            for entry in entries:
+                status = entry.get('status', 'unknown')
+                if ((status == 'success' and show_success) or
+                    (status == 'failed' and show_failed) or 
+                    (status == 'skipped' and show_skipped)):
+                    filtered_entries.append(entry)
+            
+            if filtered_entries:
+                st.write(f"**📅 {date}**")
+                
+                for entry in filtered_entries:
+                    total_shown += 1
+                    status = entry.get('status', 'unknown')
+                    report_name = entry.get('report_name', entry.get('report_id', 'Unknown'))
+                    scheduled_time = entry.get('scheduled_time', '')
+                    timestamp = entry.get('timestamp', '')
+                    
+                    # Parse time for display
+                    try:
+                        time_str = datetime.fromisoformat(timestamp.replace('Z', '+00:00')).strftime('%H:%M')
+                    except:
+                        time_str = scheduled_time
+                    
+                    # Create expandable entry for more details
+                    if status == 'success':
+                        message = entry.get('message', 'Sent successfully')
+                        with st.expander(f"✅ {time_str} - {report_name} - {message}", expanded=False):
+                            st.json({
+                                "timestamp": timestamp,
+                                "report_id": entry.get('report_id', ''),
+                                "status": status,
+                                "message": message,
+                                "scheduled_time": scheduled_time
+                            })
+                    elif status == 'failed':
+                        error = entry.get('error', 'Unknown error')
+                        with st.expander(f"❌ {time_str} - {report_name} - Failed: {error}", expanded=False):
+                            st.json({
+                                "timestamp": timestamp,
+                                "report_id": entry.get('report_id', ''),
+                                "status": status,
+                                "error": error,
+                                "scheduled_time": scheduled_time
+                            })
+                    elif status == 'skipped':
+                        message = entry.get('message', 'Skipped')
+                        with st.expander(f"⏭️ {time_str} - {report_name} - {message}", expanded=False):
+                            st.json({
+                                "timestamp": timestamp,
+                                "report_id": entry.get('report_id', ''),
+                                "status": status,
+                                "message": message,
+                                "scheduled_time": scheduled_time
+                            })
+                
+                st.markdown("---")
+    
+    if total_shown == 0:
+        st.info("📝 No deliveries match the selected filters in the specified time range")
+    else:
+        st.caption(f"Showing {total_shown} delivery records")
 
 if __name__ == "__main__":
     main()

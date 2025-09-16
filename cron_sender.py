@@ -6,8 +6,9 @@ Run by GitHub Actions to send scheduled reports automatically
 import sys
 import os
 from pathlib import Path
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import traceback
+import json
 
 # Add the app directory to the Python path
 app_dir = Path(__file__).parent / "app"
@@ -26,10 +27,41 @@ def load_environment():
     except ImportError:
         print("ℹ️ python-dotenv not available, using environment variables")
 
+def log_delivery_result(report_id, report_name, status, message=None, error=None, scheduled_time=None):
+    """Log delivery result to GitHub repository for Streamlit to display"""
+    try:
+        # Import here to avoid circular imports
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
+        from delivery_logs_manager import DeliveryLogsManager
+        
+        logs_manager = DeliveryLogsManager()
+        
+        # Add log entry
+        success = logs_manager.add_log_entry(
+            report_id=report_id,
+            report_name=report_name,
+            status=status,
+            scheduled_time=scheduled_time or "",
+            message=message or "",
+            error=error or ""
+        )
+        
+        if success:
+            print(f"📝 Logged delivery result for {report_id} to GitHub")
+        else:
+            print(f"❌ Failed to log delivery result for {report_id}")
+        
+    except Exception as e:
+        print(f"⚠️ Warning: Could not log delivery result: {e}")
+
 def send_scheduled_reports():
     """Check for and send any reports that are scheduled for this time"""
     try:
-        from report_manager import report_manager
+        # Add app directory to path for imports
+        sys.path.append(str(Path(__file__).parent / "app"))
+        from report_manager import ReportManager
         from utils import prepare_delivery_params, DeliveryExecutor
         
         # Import the delivery class
@@ -37,6 +69,9 @@ def send_scheduled_reports():
         from slack_delivery_simple import SlackDeliverySimple
         
         print(f"🕒 Checking for scheduled reports at {datetime.now()}")
+        
+        # Create report manager instance
+        report_manager = ReportManager()
         
         # Load all reports
         reports = report_manager.load_reports()
@@ -48,6 +83,7 @@ def send_scheduled_reports():
         current_time = datetime.now().time()
         current_hour = current_time.hour
         current_minute = current_time.minute
+        today_str = datetime.now().strftime("%Y-%m-%d")
         
         reports_sent = 0
         
@@ -63,7 +99,23 @@ def send_scheduled_reports():
                 schedule_hour, schedule_minute = map(int, schedule_time_str.split(':'))
                 
                 # Check if current time matches scheduled time (within the hour)
+                # Only send if we're in the same hour AND haven't sent yet today
                 if current_hour == schedule_hour:
+                    # Check if already sent today (simple check using last_sent field)
+                    last_sent = report_data.get('last_sent_date', '')
+                    if last_sent == today_str:
+                        print(f"⏭️ Report {report_id} already sent today ({last_sent})")
+                        
+                        # Log skipped delivery
+                        report_name = report_data.get('name', report_id)
+                        log_delivery_result(
+                            report_id=report_id,
+                            report_name=report_name,
+                            status="skipped",
+                            message="Already sent today",
+                            scheduled_time=schedule_time_str
+                        )
+                        continue
                     print(f"📧 Sending scheduled report: {report_id}")
                     
                     # Prepare delivery parameters
@@ -85,11 +137,43 @@ def send_scheduled_reports():
                     # Execute delivery
                     result = DeliveryExecutor.execute(SlackDeliverySimple, params)
                     
+                    report_name = report_data.get('name', report_id)
+                    
                     if result.get('success'):
                         print(f"✅ Successfully sent report: {report_id}")
                         reports_sent += 1
+                        
+                        # Log successful delivery
+                        receiver = report_data.get('receiver', '')
+                        log_delivery_result(
+                            report_id=report_id,
+                            report_name=report_name,
+                            status="success",
+                            message=f"Successfully sent to @{receiver}",
+                            scheduled_time=schedule_time_str
+                        )
+                        
+                        # Update delivery count and last delivered timestamp
+                        try:
+                            report_manager.increment_delivery_count(report_id)
+                            # Also update last_sent_date for today's duplicate prevention
+                            report_data['last_sent_date'] = today_str
+                            report_manager.update_report(report_id, report_data)
+                            print(f"📝 Updated delivery stats for {report_id}")
+                        except Exception as update_e:
+                            print(f"⚠️ Warning: Could not update last_sent_date for {report_id}: {update_e}")
                     else:
-                        print(f"❌ Failed to send report {report_id}: {result.get('error', 'Unknown error')}")
+                        error_msg = result.get('error', 'Unknown error')
+                        print(f"❌ Failed to send report {report_id}: {error_msg}")
+                        
+                        # Log failed delivery
+                        log_delivery_result(
+                            report_id=report_id,
+                            report_name=report_name,
+                            status="failed",
+                            error=error_msg,
+                            scheduled_time=schedule_time_str
+                        )
                         
             except Exception as e:
                 print(f"❌ Error processing report {report_id}: {e}")
