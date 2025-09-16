@@ -27,6 +27,9 @@ class Config:
         """Initialize configuration"""
         self.app_dir = Path(__file__).parent
         self.delivery_dir = self.app_dir.parent / "delivery"
+        self.client_info_dir = self.app_dir.parent / "client_info"
+        self.reports_file = self.client_info_dir / "reports.json"
+        # Keep arguments_file for backward compatibility if needed
         self.arguments_file = self.delivery_dir / "arguments.json"
     
     def get_environment_status(self) -> Dict[str, Any]:
@@ -42,13 +45,14 @@ class Config:
         }
     
     def load_default_arguments(self) -> Dict[str, Any]:
-        """Load default arguments from JSON file"""
+        """Load default arguments from reports.json Default template"""
         try:
-            if self.arguments_file.exists():
-                with open(self.arguments_file, 'r', encoding='utf-8') as f:
+            if self.reports_file.exists():
+                with open(self.reports_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # Clean up empty strings
-                    return {k: v for k, v in data.items() if v != ""}
+                    default_report = data.get('Default', {})
+                    # Clean up empty strings and return the default template
+                    return {k: v for k, v in default_report.items() if v != ""}
             return {}
         except Exception:
             return {}

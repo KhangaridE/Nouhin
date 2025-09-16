@@ -1,0 +1,62 @@
+{
+  "Default": {
+    "name": "Default (Used as template)",
+    "author": "o.erdem",
+    "receiver": "khangarid",
+    "link": "google.com",
+    "raw_data_link": "bing.com",
+    "channel": "bpo-flustration-rate",
+    "thread_content": "Delivery test",
+    "thread_ts": null,
+    "date": ""
+  },
+  "Report-1": {
+    "name": "DDAMOP_00009｜小林製薬（株）_命の母(ホワイト)_日次レポート",
+    "author": "u.munkhbat",
+    "receiver": "khangarid",
+    "thread_content": "小林製薬（株）",
+    "link": "https://drive.google.com/drive/folders/1ZU2gHi5wFCZCyITZ7pXSOEq6dwRS64kj",
+    "raw_data_link": "",
+    "channel": "",
+    "date": "",
+    "updated_at": "2025-09-15T17:21:02.814679"
+  },
+  "Report-2": {
+    "name": "DDAMOP_00105｜サントリーウエルネス（株）_進捗管理表（性別・年齢）_YDA_ロコモア_日次レポート",
+    "author": "u.munkhbat",
+    "receiver": "khangarid",
+    "thread_content": "サントリーウエルネス（株）",
+    "link": "https://docs.google.com/spreadsheets/d/1Q3rqXhZRHTbzjuf7QuyzkrresorR65a9b_HPyYOSLu8/edit#gid=2033322918",
+    "raw_data_link": "",
+    "channel": "",
+    "date": "",
+    "schedule_enabled": false,
+    "schedule_time": "17:21",
+    "updated_at": "2025-09-15T17:21:16.334815"
+  },
+  "Report-3": {
+    "name": "DDAMOP_00335｜ジョンソン・エンド・ジョンソン（株）_Beauty_ジョンソンエンドジョンソン_Beauty_YCA/YDA",
+    "author": "u.munkhbat",
+    "receiver": "khangarid",
+    "thread_content": "ジョンソン・エンド・ジョンソン（株）",
+    "link": "https://docs.google.com/spreadsheets/d/1E2xeyK0orm8glQMZYnrN3FKIkxFJCqPd1pUh8W8HG2s/edit?gid=1486611033#gid=1486611033",
+    "raw_data_link": "",
+    "channel": "",
+    "date": "",
+    "schedule_enabled": false,
+    "schedule_time": "17:21",
+    "updated_at": "2025-09-15T17:21:29.441928"
+  },
+  "Report-4": {
+    "name": "blabla",
+    "author": "khangarid",
+    "receiver": "erdem",
+    "thread_content": "",
+    "link": "google.com",
+    "raw_data_link": "",
+    "channel": "",
+    "date": "",
+    "created_at": "2025-09-15T16:23:18.857152",
+    "updated_at": "2025-09-15T17:16:03.348862"
+  }
+}
