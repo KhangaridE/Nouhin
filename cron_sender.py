@@ -34,7 +34,7 @@ def log_delivery_result(report_id, report_name, status, message=None, error=None
         import sys
         import os
         sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
-        from delivery_logs_manager import DeliveryLogsManager
+        from app.delivery_logs_manager import DeliveryLogsManager
         
         logs_manager = DeliveryLogsManager()
         
@@ -61,12 +61,12 @@ def send_scheduled_reports():
     try:
         # Add app directory to path for imports
         sys.path.append(str(Path(__file__).parent / "app"))
-        from report_manager import ReportManager
-        from utils import prepare_delivery_params, DeliveryExecutor
+        from app.report_manager import ReportManager
+        from app.utils import prepare_delivery_params, DeliveryExecutor
         
         # Import the delivery class
         sys.path.append(str(Path(__file__).parent / "delivery"))
-        from slack_delivery_simple import SlackDeliverySimple
+        from delivery.slack_delivery_simple import SlackDeliverySimple
         
         print(f"🕒 Checking for scheduled reports at {datetime.now()}")
         

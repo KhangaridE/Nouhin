@@ -50,6 +50,3 @@ env/
 # Logs
 logs/
 *.log
-
-# Streamlit secrets (contains actual tokens)
-.streamlit/secrets.toml

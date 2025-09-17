@@ -39,7 +39,7 @@ from utils import (
 )
 
 try:
-    from slack_delivery_simple import SlackDeliverySimple
+    from delivery.slack_delivery_simple import SlackDeliverySimple
 except ImportError as e:
     st.error(f"❌ Failed to import SlackDeliverySimple: {e}")
     st.error("Please ensure the delivery module is properly configured.")
