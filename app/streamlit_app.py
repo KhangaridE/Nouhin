@@ -23,7 +23,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 # Add the delivery module to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'delivery'))
+delivery_path = os.path.join(os.path.dirname(__file__), '..', 'delivery')
+sys.path.insert(0, delivery_path)
 
 # Import local modules
 from config import config
@@ -39,7 +40,7 @@ from utils import (
 )
 
 try:
-    from delivery.slack_delivery_simple import SlackDeliverySimple
+    from slack_delivery_simple import SlackDeliverySimple
 except ImportError as e:
     st.error(f"❌ Failed to import SlackDeliverySimple: {e}")
     st.error("Please ensure the delivery module is properly configured.")
