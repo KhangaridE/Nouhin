@@ -19,13 +19,13 @@ class GitHubStorage:
         try:
             self.repo_owner = st.secrets.get("GITHUB_REPO_OWNER") or os.getenv("GITHUB_REPO_OWNER", "KhangaridE")
             self.repo_name = st.secrets.get("GITHUB_REPO_NAME") or os.getenv("GITHUB_REPO_NAME", "nouhin_client_info")
-            self.token = st.secrets.get("GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN")
+            self.token = st.secrets.get("STORAGE_TOKEN") or os.getenv("STORAGE_TOKEN")
             self.branch = st.secrets.get("GITHUB_BRANCH") or os.getenv("GITHUB_BRANCH", "main")
         except:
             # Fallback to environment variables if Streamlit secrets not available
             self.repo_owner = os.getenv("GITHUB_REPO_OWNER", "KhangaridE")
             self.repo_name = os.getenv("GITHUB_REPO_NAME", "nouhin_client_info")
-            self.token = os.getenv("GITHUB_TOKEN")
+            self.token = os.getenv("STORAGE_TOKEN")
             self.branch = os.getenv("GITHUB_BRANCH", "main")
         
         if not self.token:

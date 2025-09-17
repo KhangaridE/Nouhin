@@ -85,6 +85,8 @@ def send_scheduled_reports():
         current_minute = current_time.minute
         today_str = datetime.now().strftime("%Y-%m-%d")
         
+        print(f"⏰ Current time: {current_hour:02d}:{current_minute:02d}")
+        
         reports_sent = 0
         
         # Check each report
@@ -93,15 +95,22 @@ def send_scheduled_reports():
                 continue
                 
             schedule_time_str = report_data.get('schedule_time', '09:00')
+            print(f"📅 Checking report {report_id}: scheduled for {schedule_time_str}")
             
             try:
                 # Parse the scheduled time
                 schedule_hour, schedule_minute = map(int, schedule_time_str.split(':'))
                 
-                # Check if current time matches scheduled time (within the hour)
-                # Only send if we're in the same hour AND haven't sent yet today
-                if current_hour == schedule_hour:
-                    # Check if already sent today (simple check using last_sent field)
+                # Check if current time is within 15 minutes of scheduled time
+                # This allows for flexibility with the 15-minute cron intervals
+                scheduled_minutes_total = schedule_hour * 60 + schedule_minute
+                current_minutes_total = current_hour * 60 + current_minute
+                
+                # Check if we're within 15 minutes of the scheduled time
+                time_diff = abs(current_minutes_total - scheduled_minutes_total)
+                
+                if time_diff <= 15 or time_diff >= (24 * 60 - 15):  # Handle day rollover
+                    # Check if already sent today
                     last_sent = report_data.get('last_sent_date', '')
                     if last_sent == today_str:
                         print(f"⏭️ Report {report_id} already sent today ({last_sent})")
@@ -174,6 +183,9 @@ def send_scheduled_reports():
                             error=error_msg,
                             scheduled_time=schedule_time_str
                         )
+                        
+                else:
+                    print(f"⏰ Report {report_id} scheduled for {schedule_time_str}, current time {current_hour:02d}:{current_minute:02d} (time_diff: {time_diff} minutes)")
                         
             except Exception as e:
                 print(f"❌ Error processing report {report_id}: {e}")
