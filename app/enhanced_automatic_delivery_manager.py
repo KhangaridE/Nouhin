@@ -83,25 +83,44 @@ class EnhancedAutomaticDeliveryManager:
         except Exception as e:
             print(f"Error saving delivery log: {e}")
     
-    def is_already_delivered_today(self, report_name: str) -> bool:
-        """Check if report was already delivered today"""
+    def is_already_delivered_today(self, report_name: str, scheduled_time: datetime = None) -> bool:
+        """Check if report was already delivered today for this specific time"""
         log = self.load_delivery_log()
         today = self.get_current_jst_time().date().isoformat()
         
         daily_log = log.get(today, {})
-        return report_name in daily_log
+        
+        if scheduled_time:
+            # Create unique key combining report name and scheduled time
+            time_str = scheduled_time.strftime('%H:%M')
+            delivery_key = f"{report_name}_{time_str}"
+            return delivery_key in daily_log
+        else:
+            # Fallback to old behavior for backward compatibility
+            return report_name in daily_log
     
-    def mark_as_delivered(self, report_name: str, delivery_info: Dict[str, Any]):
-        """Mark report as delivered for today"""
+    def mark_as_delivered(self, report_name: str, delivery_info: Dict[str, Any], scheduled_time: datetime = None):
+        """Mark report as delivered for today with specific time"""
         log = self.load_delivery_log()
         today = self.get_current_jst_time().date().isoformat()
         
         if today not in log:
             log[today] = {}
         
-        log[today][report_name] = {
+        if scheduled_time:
+            # Create unique key combining report name and scheduled time
+            time_str = scheduled_time.strftime('%H:%M')
+            delivery_key = f"{report_name}_{time_str}"
+        else:
+            # Fallback to old behavior
+            delivery_key = report_name
+        
+        log[today][delivery_key] = {
             'delivered_at': self.get_current_jst_time().isoformat(),
-            'delivery_info': delivery_info
+            'scheduled_time': scheduled_time.isoformat() if scheduled_time else None,
+            'delivery_info': delivery_info,
+            'report_name': report_name,  # Keep original name for reference
+            'deadline_time': time_str if scheduled_time else None
         }
         
         self.save_delivery_log(log)
@@ -203,20 +222,20 @@ class EnhancedAutomaticDeliveryManager:
                 
                 print(f"Processing automatic report: {task_name}")
                 
-                # Check if already delivered today
-                if self.is_already_delivered_today(task_name):
-                    print(f"Report {task_name} already delivered today")
-                    continue
-                
-                # Parse scheduled delivery time
+                # Parse scheduled delivery time first (needed for delivery tracking)
                 scheduled_time = self.parse_scheduled_time(delivery_time_str)
                 if not scheduled_time:
                     print(f"Could not parse delivery time for {task_name}: {delivery_time_str}")
                     continue
                 
+                # Check if already delivered today for this specific time
+                if self.is_already_delivered_today(task_name, scheduled_time):
+                    print(f"Report {task_name} already delivered today for {scheduled_time.strftime('%H:%M')}")
+                    continue
+                
                 # Check if we should check now (5 minutes before scheduled time)
                 if not self.should_check_now(scheduled_time):
-                    print(f"Not time to check {task_name} yet (scheduled: {scheduled_time})")
+                    print(f"Not time to check {task_name} yet (scheduled: {scheduled_time.strftime('%H:%M')})")
                     continue
                 
                 # Check if status is completed
@@ -232,15 +251,15 @@ class EnhancedAutomaticDeliveryManager:
                     continue
                 
                 # All conditions met - deliver the report
-                print(f"Delivering report: {task_name}")
+                print(f"Delivering report: {task_name} for {scheduled_time.strftime('%H:%M')} deadline")
                 
                 delivery_result = self.deliver_report(task_name, matching_report, report_data)
                 
                 if delivery_result.get('success'):
-                    self.mark_as_delivered(task_name, delivery_result)
-                    print(f"✅ Successfully delivered {task_name}")
+                    self.mark_as_delivered(task_name, delivery_result, scheduled_time)
+                    print(f"Successfully delivered {task_name} for {scheduled_time.strftime('%H:%M')}")
                 else:
-                    print(f"❌ Failed to deliver {task_name}: {delivery_result.get('error')}")
+                    print(f"Failed to deliver {task_name}: {delivery_result.get('error')}")
                 
                 results.append({
                     'task_name': task_name,

@@ -382,12 +382,46 @@ def display_report_card(report_id, report):
         delivery_mode = report.get('delivery_mode', 'manual')
         if delivery_mode == 'automatic':
             automatic_task_id = report.get('automatic_task_id', '')
-            st.success(f" Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
+            st.success(f"Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
+            
+            # Try to fetch deadline information from Google Sheets
+            try:
+                from google_sheets_service import GoogleSheetsService
+                import streamlit as st_secrets
+                
+                if hasattr(st_secrets, 'secrets') and automatic_task_id:
+                    status_url = st_secrets.secrets.get("GOOGLE_SHEETS_STATUS_URL")
+                    if status_url:
+                        gs = GoogleSheetsService()
+                        reports_data = gs.get_status_reports(status_url)
+                        
+                        # Find matching reports for this task ID
+                        matching_deadlines = []
+                        for sheet_report in reports_data:
+                            if sheet_report.get('task_name') == automatic_task_id:
+                                deadline = sheet_report.get('scheduled_time', 'No time')
+                                status = sheet_report.get('current_status', 'Unknown')
+                                matching_deadlines.append({
+                                    'time': deadline,
+                                    'status': status
+                                })
+                        
+                        if matching_deadlines:
+                            st.info("**Current Google Sheets Deadlines:**")
+                            for i, deadline_info in enumerate(matching_deadlines, 1):
+                                time_str = deadline_info['time']
+                                status_str = deadline_info['status']
+                                st.caption(f"Deadline {i}: {time_str} (Status: {status_str})")
+                        else:
+                            st.warning(f"No deadlines found in Google Sheets for task: {automatic_task_id}")
+            except Exception as e:
+                st.caption(f"Could not fetch deadline info from Google Sheets: {e}")
+                
         elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
             schedule_time = report.get('schedule_time', '09:00')
             st.success(f"Scheduled delivery enabled - Daily at {schedule_time}")
         else:
-            st.info(" Manual delivery only - Use Custom Delivery page to send")
+            st.info("Manual delivery only - Use Custom Delivery page to send")
 
 def delivery_section_page():
     """First page - Delivery List for immediate delivery"""
