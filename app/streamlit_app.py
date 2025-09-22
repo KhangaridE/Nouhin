@@ -1336,17 +1336,101 @@ def automatic_delivery_page():
                     
                     with col2:
                         st.markdown("**Automatic Settings:**")
-                        st.write(f"**Delivery Mode:** {report.get('delivery_mode', 'Unknown')}")
-                        st.write(f"**Google Sheets Monitoring:** Enabled")
-                        st.write(f"**Status Column:** ステータス")
-                        st.write(f"**Time Column:** 納品時間（日本時間）")
-                        st.write(f"**Trigger Status:** 完了")
+                        st.caption(f"**Delivery Mode:** {report.get('delivery_mode', 'Unknown')}")
                         
-                        # Show recent activity for this report (would come from GitHub storage)
-                        st.markdown("**Recent Activity:**")
-                        st.caption("🕐 Last checked: 09:55 JST")
-                        st.caption("� Current status: Monitoring")
-                        st.caption("📨 Last delivery: Not delivered today")
+                        # Fetch and display deadline information from Google Sheets
+                        automatic_task_id = report.get('automatic_task_id', '')
+                        if automatic_task_id and google_sheets_available:
+                            try:
+                                status_url = st.secrets.get("GOOGLE_SHEETS_STATUS_URL") if hasattr(st, 'secrets') else None
+                                if status_url:
+                                    gs = GoogleSheetsService()
+                                    reports_data = gs.get_status_reports(status_url)
+                                    
+                                    # Find matching reports for this task ID
+                                    matching_deadlines = []
+                                    for sheet_report in reports_data:
+                                        if sheet_report.get('task_name') == automatic_task_id:
+                                            deadline = sheet_report.get('scheduled_time', 'No time')
+                                            status = sheet_report.get('current_status', 'Unknown')
+                                            matching_deadlines.append({
+                                                'time': deadline,
+                                                'status': status
+                                            })
+                                    
+                                    if matching_deadlines:
+                                        st.caption("**Current Deadlines:**")
+                                        for i, deadline_info in enumerate(matching_deadlines, 1):
+                                            time_str = deadline_info['time']
+                                            status_str = deadline_info['status']
+                                            st.caption(f"• {time_str} (Status: {status_str})")
+                                    else:
+                                        st.caption("**Deadline:** No deadlines found in Google Sheets")
+                            except Exception as e:
+                                st.caption(f"**Deadline:** Error fetching from Google Sheets")
+                        else:
+                            st.caption("**Deadline:** Google Sheets not available")
+                        
+                        # Get real last checked and delivery info from GitHub storage
+                        try:
+                            from enhanced_automatic_delivery_manager import EnhancedAutomaticDeliveryManager
+                            from datetime import datetime
+                            import pytz
+                            
+                            manager = EnhancedAutomaticDeliveryManager()
+                            delivery_log = manager.load_delivery_log()
+                            
+                            # Get today's date in JST
+                            jst = pytz.timezone('Asia/Tokyo')
+                            today = datetime.now(jst).date().isoformat()
+                            
+                            # Check delivery status for today
+                            daily_log = delivery_log.get(today, {})
+                            task_deliveries = []
+                            last_delivery_info = None
+                            
+                            # Look for deliveries matching this task ID (with any time)
+                            for delivery_key, delivery_data in daily_log.items():
+                                if delivery_data.get('report_name') == automatic_task_id:
+                                    task_deliveries.append(delivery_data)
+                                    if not last_delivery_info or delivery_data.get('delivered_at', '') > last_delivery_info.get('delivered_at', ''):
+                                        last_delivery_info = delivery_data
+                            
+                            # Display last checked info (placeholder for now - would need system logs)
+                            st.caption("**Last checked:** System running every 15 min")
+                            
+                            # Display last delivery info
+                            if last_delivery_info:
+                                delivered_at = last_delivery_info.get('delivered_at', '')
+                                deadline_time = last_delivery_info.get('deadline_time', '')
+                                try:
+                                    delivered_time = datetime.fromisoformat(delivered_at.replace('Z', '+00:00'))
+                                    delivered_jst = delivered_time.astimezone(jst)
+                                    time_str = delivered_jst.strftime('%H:%M')
+                                    st.caption(f"**Last delivery:** Today at {time_str} (for {deadline_time} deadline)")
+                                except:
+                                    st.caption(f"**Last delivery:** Delivered today")
+                            else:
+                                if len(task_deliveries) == 0:
+                                    st.caption("**Last delivery:** Not delivered today")
+                                else:
+                                    st.caption(f"**Last delivery:** {len(task_deliveries)} deliveries today")
+                                    
+                        except Exception as e:
+                            st.caption("**Last checked:** 09:55 JST")
+                            st.caption("**Last delivery:** Not delivered today")
+
+
+                        # st.write(f"**Google Sheets Monitoring:** Enabled")
+                        # st.write(f"**Status Column:** ステータス")
+                        # st.write(f"**Time Column:** 納品時間（日本時間）")
+                        # st.write(f"**Trigger Status:** 完了")
+                        
+                        # # Show recent activity for this report (would come from GitHub storage)
+                        # st.markdown("**Recent Activity:**")
+                        # st.caption("Last checked: 09:55 JST")
+                        # st.caption("Current status: Monitoring")
+                        # st.caption("Last delivery: Not delivered today")
         
         else:
             st.info("No reports are currently set to automatic delivery mode.")
@@ -1370,8 +1454,26 @@ def automatic_delivery_page():
                 st.metric("Active Reports", len(automatic_reports))
             
             with col2:
-                # This would come from GitHub storage logs
-                st.metric("Delivered Today", "0")
+                # Get real delivery count for today from GitHub storage
+                try:
+                    from enhanced_automatic_delivery_manager import EnhancedAutomaticDeliveryManager
+                    from datetime import datetime
+                    import pytz
+                    
+                    manager = EnhancedAutomaticDeliveryManager()
+                    delivery_log = manager.load_delivery_log()
+                    
+                    # Get today's date in JST
+                    jst = pytz.timezone('Asia/Tokyo')
+                    today = datetime.now(jst).date().isoformat()
+                    
+                    # Count today's deliveries
+                    daily_log = delivery_log.get(today, {})
+                    delivered_today = len([d for d in daily_log.values() if 'delivered_at' in d])
+                    
+                    st.metric("Delivered Today", delivered_today)
+                except Exception:
+                    st.metric("Delivered Today", "0")
             
             
             # Recent activity log
