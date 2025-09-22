@@ -53,7 +53,19 @@ jobs:
 
     - name: Run automatic deliveries
       run: |
-        python -c "from app.automatic_delivery_manager import automatic_delivery_manager; automatic_delivery_manager.process_automatic_deliveries()"
+        python -c "
+        import sys
+        sys.path.insert(0, 'app')
+        try:
+            from enhanced_automatic_delivery_manager import enhanced_automatic_delivery_manager
+            results = enhanced_automatic_delivery_manager.process_automatic_deliveries()
+            delivered_count = sum(1 for r in results if r.get('status') == 'delivered')
+            print(f'Processed automatic deliveries: {delivered_count} delivered')
+        except Exception as e:
+            print(f'Automatic delivery processing failed: {e}')
+            import traceback
+            traceback.print_exc()
+        "
       env:
         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID: ${{ secrets.DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID }}
