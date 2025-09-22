@@ -139,6 +139,20 @@ class EnhancedAutomaticDeliveryManager:
         results = []
         
         try:
+            # Check if automatic delivery system is enabled
+            try:
+                from system_settings_manager import SystemSettingsManager
+                settings_manager = SystemSettingsManager()
+                automatic_delivery_enabled = settings_manager.get_automatic_delivery_enabled()
+                
+                if not automatic_delivery_enabled:
+                    print("Automatic delivery system is disabled - skipping processing")
+                    return []
+                    
+                print("Automatic delivery system is enabled - proceeding with processing")
+            except ImportError:
+                print("Warning: Could not load system settings manager - proceeding anyway")
+            
             # Import report manager to get reports set to automatic mode
             from report_manager import report_manager
             

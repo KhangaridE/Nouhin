@@ -1210,25 +1210,53 @@ def automatic_delivery_page():
         col1, col2 = st.columns(2)
         
         with col1:
-            # Enable/disable automatic delivery with session state persistence
-            if 'auto_delivery_enabled' not in st.session_state:
-                st.session_state.auto_delivery_enabled = False
+            # Enable/disable automatic delivery with persistent storage
+            try:
+                from system_settings_manager import SystemSettingsManager
+                settings_manager = SystemSettingsManager()
                 
-            enabled = st.checkbox(
-                "Enable Automatic Delivery System", 
-                value=st.session_state.auto_delivery_enabled,
-                help="Check this to start automatic delivery monitoring",
-                key="auto_delivery_checkbox"
-            )
-            
-            # Update session state when checkbox changes
-            st.session_state.auto_delivery_enabled = enabled
-            
-            if enabled:
-                st.success("Automatic delivery system enabled")
-                st.info("System will check Google Sheets every 5 minutes and deliver reports when status = '完了'")
-            else:
-                st.info("Automatic delivery system is disabled")
+                # Load current state from GitHub storage
+                current_enabled = settings_manager.get_automatic_delivery_enabled()
+                
+                enabled = st.checkbox(
+                    "Enable Automatic Delivery System", 
+                    value=current_enabled,
+                    help="Check this to start automatic delivery monitoring. State persists across browser sessions.",
+                    key="auto_delivery_checkbox"
+                )
+                
+                # Save state to GitHub storage when changed
+                if enabled != current_enabled:
+                    success = settings_manager.set_automatic_delivery_enabled(enabled)
+                    if success:
+                        if enabled:
+                            st.success("Automatic delivery system enabled and saved to GitHub")
+                        else:
+                            st.info("Automatic delivery system disabled and saved to GitHub")
+                    else:
+                        st.error("Failed to save setting to GitHub storage")
+                
+                if enabled:
+                    st.success("Automatic delivery system enabled")
+                    st.info("System will check Google Sheets every 5 minutes and deliver reports when status = 'completed'")
+                    st.caption("This setting is saved in GitHub and persists across browser sessions")
+                else:
+                    st.info("Automatic delivery system is disabled")
+                    st.caption("This setting is saved in GitHub and persists across browser sessions")
+                    
+            except ImportError:
+                st.error("System settings manager not available - using session state only")
+                # Fallback to session state
+                if 'auto_delivery_enabled' not in st.session_state:
+                    st.session_state.auto_delivery_enabled = False
+                    
+                enabled = st.checkbox(
+                    "Enable Automatic Delivery System", 
+                    value=st.session_state.auto_delivery_enabled,
+                    help="Check this to start automatic delivery monitoring",
+                    key="auto_delivery_checkbox_fallback"
+                )
+                st.session_state.auto_delivery_enabled = enabled
         
         with col2:
             # Check Google Sheets connection
