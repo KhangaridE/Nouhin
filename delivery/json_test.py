@@ -12,9 +12,8 @@ from datetime import datetime
 
 def load_arguments_from_json(json_file='arguments.json'):
     """Load delivery arguments from JSON file"""
-    
     if not os.path.exists(json_file):
-        print(f"❌ JSON file '{json_file}' not found!")
+        print(f"JSON file '{json_file}' not found!")
         print("Please create the JSON file with your delivery parameters.")
         return None
     
@@ -26,7 +25,7 @@ def load_arguments_from_json(json_file='arguments.json'):
         required_fields = ['author', 'receiver', 'link']
         for field in required_fields:
             if not data.get(field):
-                print(f"❌ Required field '{field}' is missing or empty in JSON file")
+                print(f"Required field '{field}' is missing or empty in JSON file")
                 return None
         
         # Add default date if not provided
@@ -36,18 +35,14 @@ def load_arguments_from_json(json_file='arguments.json'):
         return data
         
     except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON format: {e}")
+        print(f"Invalid JSON format: {e}")
         return None
     except Exception as e:
-        print(f"❌ Error reading JSON file: {e}")
+        print(f"Error reading JSON file: {e}")
         return None
 
-
 def call_slack_delivery(author, receiver, link, raw_data_link=None, channel=None, date=None, thread_content=None, thread_ts=None, verbose=None):
-    """
-    Call the slack delivery system and return the result
-    """
-    
+    """Call the slack delivery system and return the result"""
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
     slack_script = os.path.join(script_dir, 'slack_delivery_simple.py')
@@ -75,15 +70,15 @@ def call_slack_delivery(author, receiver, link, raw_data_link=None, channel=None
         cmd.append('--verbose')
     
     try:
-        print(f"\n🚀 Executing command:")
-        print(f"   {' '.join(cmd)}")
+        print(f"\nExecuting command:")
+        print(f"{' '.join(cmd)}")
         print("")
         
         # Execute the command
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         # Show the raw output first
-        print("📄 Raw Output:")
+        print("Raw Output:")
         print("-" * 40)
         if result.stdout:
             print(result.stdout)
@@ -131,18 +126,17 @@ def call_slack_delivery(author, receiver, link, raw_data_link=None, channel=None
 
 def main():
     """Main function that reads from JSON and executes delivery"""
-    
     # Check if token is set
     token = os.environ.get('SLACK_BOT_TOKEN')
     if not token:
-        print("❌ SLACK_BOT_TOKEN not set!")
+        print("SLACK_BOT_TOKEN not set!")
         print("Please run: export SLACK_BOT_TOKEN='your-token-here'")
         sys.exit(1)
     
     print("=" * 60)
-    print("🤖 JSON-BASED SLACK DELIVERY TEST")
+    print("JSON-BASED SLACK DELIVERY TEST")
     print("=" * 60)
-    print(f"✅ Using token: {token[:20]}...")
+    print(f"Using token: {token[:20]}...")
     print("")
     
     # Handle command line arguments for custom JSON file
@@ -156,7 +150,7 @@ def main():
         return
     
     # Show loaded parameters
-    print("📋 LOADED PARAMETERS FROM JSON")
+    print("LOADED PARAMETERS FROM JSON")
     print("=" * 60)
     print(f"Author: {params['author']}")
     print(f"Receiver: {params['receiver']}")
@@ -172,35 +166,34 @@ def main():
     # Ask for confirmation
     print("")
     confirm = input("Proceed with delivery? (y/n): ").strip().lower()
-    
     if confirm != 'y':
-        print("❌ Cancelled by user")
+        print("Cancelled by user")
         return
     
     # Execute delivery
     print("\n" + "=" * 60)
-    print("🚀 EXECUTING DELIVERY")
+    print("EXECUTING DELIVERY")
     print("=" * 60)
     
     result = call_slack_delivery(**params)
     
     # Show final result
     print("\n" + "=" * 60)
-    print("📊 FINAL RESULT")
+    print("FINAL RESULT")
     print("=" * 60)
     
     if result['success'] and result.get('response', {}).get('success'):
-        print("✅ SUCCESS: Message delivered to Slack!")
+        print("SUCCESS: Message delivered to Slack!")
         response = result.get('response', {})
         if 'timestamp' in response:
-            print(f"📅 Timestamp: {response['timestamp']}")
+            print(f"Timestamp: {response['timestamp']}")
         if 'channel' in response:
-            print(f"📢 Channel: {response['channel']}")
+            print(f"Channel: {response['channel']}")
     else:
-        print("❌ FAILED:")
-        print(f"   Error: {result.get('error', 'Unknown error')}")
+        print("FAILED:")
+        print(f"Error: {result.get('error', 'Unknown error')}")
         if result.get('raw_error'):
-            print(f"   Details: {result['raw_error']}")
+            print(f"Details: {result['raw_error']}")
 
 if __name__ == "__main__":
-    main()
+    main() 

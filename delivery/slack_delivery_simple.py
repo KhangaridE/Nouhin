@@ -12,14 +12,12 @@ import argparse
 from datetime import datetime
 from typing import Optional, Dict, List
 from difflib import SequenceMatcher
-
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 # Configure minimal logging
 logging.basicConfig(level=logging.WARNING, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-
 
 class SlackDeliverySimple:
     """Simple Slack delivery for RPA integration"""
@@ -48,7 +46,7 @@ class SlackDeliverySimple:
             
         if not self.channel_id:
             raise ValueError("No channel specified and no DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID environment variable")
-
+    
     def _get_channel_id(self, channel_name: str) -> Optional[str]:
         """Get channel ID from channel name"""
         try:
@@ -71,7 +69,7 @@ class SlackDeliverySimple:
         except SlackApiError as e:
             logger.error(f"Error getting channel ID: {e}")
             return None
-
+    
     def _get_users_list(self) -> List[Dict]:
         """Get and cache list of Slack users"""
         if self._users_cache is None:
@@ -85,8 +83,9 @@ class SlackDeliverySimple:
             except SlackApiError as e:
                 logger.error(f"Error getting users list: {e}")
                 self._users_cache = []
+        
         return self._users_cache
-
+    
     def _find_user_by_name(self, name: str) -> Optional[Dict]:
         """Find user by name (exact match first, then fuzzy matching) - returns full user info"""
         users = self._get_users_list()
@@ -143,10 +142,11 @@ class SlackDeliverySimple:
                 }
         
         return best_match
-
+    
     def _convert_name_to_mention(self, name: str) -> str:
         """Convert name to Slack mention format with detailed logging"""
         match_result = self._find_user_by_name(name)
+        
         if match_result:
             user = match_result['user']
             score = match_result['score']
@@ -157,18 +157,19 @@ class SlackDeliverySimple:
             user_id = user.get('id', 'N/A')
             
             # Log the match details
-            logger.info(f"✅ Found user for '{name}': {real_name} (@{username}) - ID: {user_id}")
-            logger.info(f"   Match score: {score:.2%}, matched on: {matched_field}")
+            logger.info(f"Found user for '{name}': {real_name} (@{username}) - ID: {user_id}")
+            logger.info(f"Match score: {score:.2%}, matched on: {matched_field}")
             
             return f"<@{user_id}>"
         else:
             # Return original name if user not found
-            logger.warning(f"❌ No user found for '{name}' (no matches above 80% threshold)")
+            logger.warning(f"No user found for '{name}' (no matches above 80% threshold)")
             return f"@{name}"
-
+    
     def _get_user_details(self, name: str) -> Dict:
         """Get detailed user information for response"""
         match_result = self._find_user_by_name(name)
+        
         if match_result:
             user = match_result['user']
             return {
@@ -184,19 +185,19 @@ class SlackDeliverySimple:
             return {
                 "input_name": name,
                 "real_name": "Not found",
-                "username": "Not found", 
+                "username": "Not found",
                 "user_id": "Not found",
-                "display_format": f"❌ No user found for '{name}'",
+                "display_format": f"No user found for '{name}'",
                 "match_score": 0.0,
                 "match_type": "no_match"
             }
-
+    
     def _find_matching_thread(self, thread_content: str = None) -> Optional[str]:
         """Find matching thread based on provided content text"""
         if not thread_content:
-            logger.info("📍 No thread content provided for matching")
+            logger.info("No thread content provided for matching")
             return None
-            
+        
         try:
             # Get recent messages from channel
             result = self.user_client.conversations_history(
@@ -221,8 +222,7 @@ class SlackDeliverySimple:
                 similarity_score = SequenceMatcher(None, thread_content_lower, message_text).ratio()
                 
                 # Also check if thread_content is a substring of the message (or vice versa)
-                if (thread_content_lower in message_text or 
-                    message_text in thread_content_lower):
+                if (thread_content_lower in message_text or message_text in thread_content_lower):
                     similarity_score = max(similarity_score, 0.8)  # Boost for substring matches
                 
                 if similarity_score > best_score:
@@ -237,20 +237,22 @@ class SlackDeliverySimple:
             if best_match and best_score > 0.7:  # 70% similarity threshold
                 thread_ts = best_match['timestamp']
                 message_preview = best_match['text'][:100] + "..." if len(best_match['text']) > 100 else best_match['text']
-                logger.info(f"📍 Found matching thread (score: {best_score:.2%}):")
-                logger.info(f"   Thread TS: {thread_ts}")
-                logger.info(f"   Matched text: {message_preview}")
-                logger.info(f"   Your input: {thread_content}")
+                
+                logger.info(f"Found matching thread (score: {best_score:.2%}):")
+                logger.info(f"Thread TS: {thread_ts}")
+                logger.info(f"Matched text: {message_preview}")
+                logger.info(f"Your input: {thread_content}")
+                
                 return thread_ts
             else:
-                logger.info(f"📍 No matching thread found for content: '{thread_content}'")
-                logger.info(f"   Best match score was only {best_score:.2%} (below 70% threshold)")
+                logger.info(f"No matching thread found for content: '{thread_content}'")
+                logger.info(f"Best match score was only {best_score:.2%} (below 70% threshold)")
                 return None
-            
+                
         except SlackApiError as e:
             logger.error(f"Error finding matching thread: {e}")
             return None
-
+    
     def send_type1_message(
         self,
         file_link: str,
@@ -267,7 +269,7 @@ class SlackDeliverySimple:
             if thread_ts:
                 # Client provided explicit thread timestamp
                 target_thread_ts = thread_ts
-                logger.info(f"📍 Using provided thread timestamp: {thread_ts}")
+                logger.info(f"Using provided thread timestamp: {thread_ts}")
             elif thread_content:
                 # Client provided thread content - we MUST find a matching thread
                 target_thread_ts = self._find_matching_thread(thread_content)
@@ -279,18 +281,18 @@ class SlackDeliverySimple:
                         "error": error_msg,
                         "suggestion": "Remove --thread-content parameter to create a new message, or verify the thread content matches an existing message"
                     }
-                logger.info(f"📍 Found matching thread for content: '{thread_content}'")
+                logger.info(f"Found matching thread for content: '{thread_content}'")
             else:
                 # No thread specified - create new message
                 target_thread_ts = None
-                logger.info("📍 No thread parameters provided, will create new message")
-
+                logger.info("No thread parameters provided, will create new message")
+            
             # Use custom date or current date
             if custom_date:
                 date_str = custom_date
             else:
                 date_str = datetime.now().strftime("%Y/%m/%d")
-
+            
             # Convert names to proper Slack mentions
             receiver_mention = self._convert_name_to_mention(receiver)
             author_mention = self._convert_name_to_mention(author)
@@ -309,11 +311,11 @@ class SlackDeliverySimple:
             message += f"▼格納先\n"
             message += f"{file_link}\n\n"
             message += f"お忙しいところ恐れ入りますが、何卒よろしくお願いいたします。"
-
+            
             # Get user details for response
             author_details = self._get_user_details(author)
             receiver_details = self._get_user_details(receiver)
-
+            
             # Send message
             if target_thread_ts:
                 # Reply in thread
@@ -362,7 +364,7 @@ class SlackDeliverySimple:
                 "success": False,
                 "error": error_msg
             }
-
+    
     def send_type1_message_with_file(
         self,
         file_path: str,
@@ -377,11 +379,10 @@ class SlackDeliverySimple:
         try:
             # First determine target thread
             target_thread_ts = None
-            
             if thread_ts:
                 # Use explicit thread timestamp
                 target_thread_ts = thread_ts
-                logger.info(f"📍 Using explicit thread timestamp: {thread_ts}")
+                logger.info(f"Using explicit thread timestamp: {thread_ts}")
             elif thread_content:
                 # Find thread by content similarity
                 target_thread_ts = self._find_matching_thread(thread_content)
@@ -391,18 +392,18 @@ class SlackDeliverySimple:
                         "error": f"Could not find thread matching content: '{thread_content}'",
                         "suggestion": "Remove --thread-content parameter to create a new message, or verify the thread content matches an existing message"
                     }
-                logger.info(f"📍 Found matching thread for content: '{thread_content}'")
+                logger.info(f"Found matching thread for content: '{thread_content}'")
             else:
                 # No thread specified - create new message
                 target_thread_ts = None
-                logger.info("📍 No thread parameters provided, will create new message")
-
+                logger.info("No thread parameters provided, will create new message")
+            
             # Use custom date or current date
             if custom_date:
                 date_str = custom_date
             else:
                 date_str = datetime.now().strftime("%Y/%m/%d")
-
+            
             # Convert names to proper Slack mentions
             receiver_mention = self._convert_name_to_mention(receiver)
             author_mention = self._convert_name_to_mention(author)
@@ -421,11 +422,11 @@ class SlackDeliverySimple:
             message += f"▼格納先\n"
             message += f"ファイルをアップロードしました（下記参照）\n\n"
             message += f"お忙しいところ恐れ入りますが、何卒よろしくお願いいたします。"
-
+            
             # Get user details for response
             author_details = self._get_user_details(author)
             receiver_details = self._get_user_details(receiver)
-
+            
             # Upload file
             with open(file_path, 'rb') as file_content:
                 if target_thread_ts:
@@ -465,7 +466,7 @@ class SlackDeliverySimple:
                         "author": author_details["display_format"],
                         "receiver": receiver_details["display_format"]
                     }
-                
+                    
         except SlackApiError as e:
             error_msg = f"Slack API error: {e}"
             logger.error(error_msg)
@@ -541,7 +542,6 @@ def main():
         }
         print(json.dumps(error_result, ensure_ascii=False, indent=2))
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

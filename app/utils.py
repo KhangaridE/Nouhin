@@ -8,24 +8,23 @@ import traceback
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-
 def display_environment_status(env_status: Dict[str, Any]):
     """Display environment status in sidebar"""
-    st.header("⚙️ System Status")
+    st.header("System Status")
     
     if env_status['slack_token_set']:
-        st.success(f"✅ Slack Token: {env_status['slack_token_preview']}")
+        st.success(f"Slack Token: {env_status['slack_token_preview']}")
     else:
-        st.error("❌ SLACK_BOT_TOKEN not set!")
+        st.error("SLACK_BOT_TOKEN not set!")
         st.code("export SLACK_BOT_TOKEN='your-token-here'")
-    
-    if env_status['default_channel_set']:
-        st.success("✅ Default Channel ID set")
-    else:
-        st.warning("⚠️ No default channel ID")
-        if env_status.get('default_channel'):
-            st.info(f"Channel: {env_status['default_channel']}")
 
+    if env_status['default_channel_set']:
+        st.success("Default Channel ID set")
+    else:
+        st.warning("No default channel ID")
+        
+    if env_status.get('default_channel'):
+        st.info(f"Channel: {env_status['default_channel']}")
 
 def validate_form_inputs(author: str, receiver: str, link: str) -> list:
     """Validate required form inputs"""
@@ -33,7 +32,7 @@ def validate_form_inputs(author: str, receiver: str, link: str) -> list:
     
     # Handle None values by converting to empty string
     author = str(author or '').strip()
-    receiver = str(receiver or '').strip()  
+    receiver = str(receiver or '').strip()
     link = str(link or '').strip()
     
     if not author:
@@ -52,101 +51,94 @@ def validate_form_inputs(author: str, receiver: str, link: str) -> list:
     
     return errors
 
-
 def format_delivery_preview(params: Dict[str, Any]) -> str:
     """Format delivery parameters for preview"""
     preview_lines = [
-        f"**👤 Author:** {params['author']}",
-        f"**👥 Receiver:** {params['receiver']}",
-        f"**📅 Date:** {params['date']}",
-        f"**🔗 Main Link:** {params['link']}"
+        f"**Author:** {params['author']}",
+        f"**Receiver:** {params['receiver']}",
+        f"**Date:** {params['date']}",
+        f"**Main Link:** {params['link']}"
     ]
     
     if params.get('raw_data_link'):
-        preview_lines.append(f"**📊 Raw Data:** {params['raw_data_link']}")
+        preview_lines.append(f"**Raw Data:** {params['raw_data_link']}")
     
     if params.get('channel'):
-        preview_lines.append(f"**📢 Channel:** #{params['channel']}")
+        preview_lines.append(f"**Channel:** #{params['channel']}")
     
     if params.get('thread_content'):
-        preview_lines.append(f"**🧵 Thread Search:** {params['thread_content']}")
-    
+        preview_lines.append(f"**Thread Search:** {params['thread_content']}")
+        
     if params.get('thread_ts'):
-        preview_lines.append(f"**🔢 Thread TS:** {params['thread_ts']}")
-    
+        preview_lines.append(f"**Thread TS:** {params['thread_ts']}")
+        
     return "\n".join(preview_lines)
-
 
 def display_delivery_results(result: Dict[str, Any]):
     """Display delivery results with proper formatting"""
     if result.get('success'):
-        st.success("✅ Message delivered successfully!")
+        st.success("Message delivered successfully!")
         
         # Show detailed results
-        with st.expander("📄 Delivery Details", expanded=True):
+        with st.expander("Delivery Details", expanded=True):
             details = []
             
             if 'timestamp' in result:
-                details.append(f"📅 **Timestamp:** {result['timestamp']}")
+                details.append(f"**Timestamp:** {result['timestamp']}")
             
             if 'channel' in result:
-                details.append(f"📢 **Channel:** {result['channel']}")
+                details.append(f"**Channel:** {result['channel']}")
             
             if 'author_details' in result:
                 author_info = result['author_details']
-                details.append(f"👤 **Author Match:** {author_info.get('display_format', 'N/A')}")
+                details.append(f"**Author Match:** {author_info.get('display_format', 'N/A')}")
                 if author_info.get('match_score'):
-                    details.append(f"   - Match Score: {author_info['match_score']:.2%}")
+                    details.append(f"- Match Score: {author_info['match_score']:.2%}")
             
             if 'receiver_details' in result:
                 receiver_info = result['receiver_details']
-                details.append(f"👥 **Receiver Match:** {receiver_info.get('display_format', 'N/A')}")
+                details.append(f"**Receiver Match:** {receiver_info.get('display_format', 'N/A')}")
                 if receiver_info.get('match_score'):
-                    details.append(f"   - Match Score: {receiver_info['match_score']:.2%}")
+                    details.append(f"- Match Score: {receiver_info['match_score']:.2%}")
             
             if 'thread_info' in result:
                 thread_info = result['thread_info']
                 if thread_info.get('used_existing'):
-                    details.append(f"🧵 **Thread:** Used existing thread")
-                    details.append(f"   - Thread TS: {thread_info.get('thread_ts', 'N/A')}")
+                    details.append("**Thread:** Used existing thread")
+                    details.append(f"- Thread TS: {thread_info.get('thread_ts', 'N/A')}")
                 else:
-                    details.append("🧵 **Thread:** Created new message")
+                    details.append("**Thread:** Created new message")
             
             for detail in details:
                 st.info(detail)
         
         # Show JSON response
-        with st.expander("🔍 Raw Response (JSON)"):
+        with st.expander("Raw Response (JSON)"):
             st.json(result)
-    
     else:
-        st.error("❌ Delivery failed!")
-        
+        st.error("Delivery failed!")
         error_msg = result.get('error', 'Unknown error')
         st.error(f"**Error:** {error_msg}")
         
         # Show traceback if available
         if result.get('traceback'):
-            with st.expander("🐛 Technical Details"):
+            with st.expander("Technical Details"):
                 st.code(result['traceback'], language='python')
         
         # Show JSON response
-        with st.expander("🔍 Raw Response (JSON)"):
+        with st.expander("Raw Response (JSON)"):
             st.json(result)
-
 
 def save_to_session_state(params: Dict[str, Any], prefix: str = "form_"):
     """Save parameters to Streamlit session state"""
     for key, value in params.items():
         st.session_state[f"{prefix}{key}"] = value
 
-
 def clear_session_state(prefix: str = "form_"):
     """Clear session state with given prefix"""
     keys_to_delete = [key for key in st.session_state.keys() if key.startswith(prefix)]
     for key in keys_to_delete:
         del st.session_state[key]
-
 
 def prepare_delivery_params(form_data: Dict[str, Any]) -> Dict[str, Any]:
     """Prepare and clean delivery parameters"""
@@ -188,7 +180,6 @@ def prepare_delivery_params(form_data: Dict[str, Any]) -> Dict[str, Any]:
             params['date'] = datetime.now().strftime("%Y/%m/%d")
     
     return params
-
 
 class DeliveryExecutor:
     """Helper class to execute delivery with proper error handling"""
@@ -253,4 +244,4 @@ class DeliveryExecutor:
                 'error': f'Unexpected error: {str(e)}',
                 'error_type': 'unexpected_error',
                 'traceback': traceback.format_exc()
-            }
+            } 

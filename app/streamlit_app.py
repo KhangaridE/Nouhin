@@ -42,7 +42,7 @@ from utils import (
 try:
     from slack_delivery_simple import SlackDeliverySimple
 except ImportError as e:
-    st.error(f"❌ Failed to import SlackDeliverySimple: {e}")
+    st.error(f" Failed to import SlackDeliverySimple: {e}")
     st.error("Please ensure the delivery module is properly configured.")
     st.stop()
 
@@ -75,10 +75,10 @@ def clear_delivery_history():
         success = logs_manager.save_logs(empty_logs)
         
         if success:
-            st.info("🗑️ All delivery history has been cleared from GitHub repository")
+            st.info("All delivery history has been cleared from GitHub repository")
             return True
         else:
-            st.error("❌ Failed to clear delivery history")
+            st.error("Failed to clear delivery history")
             return False
             
     except Exception as e:
@@ -88,7 +88,7 @@ def clear_delivery_history():
 def display_delivery_history(logs):
     """Display delivery history in Streamlit"""
     if not logs:
-        st.info("📝 No delivery history yet")
+        st.info("No delivery history yet")
         return
     
     # Get last 7 days of logs
@@ -109,7 +109,7 @@ def display_delivery_history(logs):
             # Sort entries by timestamp (newest first)
             entries = sorted(logs[date], key=lambda x: x.get('timestamp', ''), reverse=True)
             
-            st.write(f"**📅 {date}**")
+            st.write(f"**{date}**")
             
             for entry in entries:
                 total_entries += 1
@@ -141,20 +141,20 @@ def display_delivery_history(logs):
                         if status == 'success':
                             success_count += 1
                             message = entry.get('message', 'Sent successfully')
-                            st.success(f"✅ **Status:** Success")
+                            st.success(f"**Status:** Success")
                             st.write(f"**Message:** {message}")
                         elif status == 'failed':
                             failed_count += 1
                             error = entry.get('error', 'Unknown error')
-                            st.error(f"❌ **Status:** Failed")
+                            st.error(f"**Status:** Failed")
                             st.write(f"**Error:** {error}")
                         elif status == 'skipped':
                             skipped_count += 1
                             message = entry.get('message', 'Skipped')
-                            st.info(f"⏭️ **Status:** Skipped")
+                            st.info(f"**Status:** Skipped")
                             st.write(f"**Reason:** {message}")
                         else:
-                            st.warning(f"❓ **Status:** {status}")
+                            st.warning(f"**Status:** {status}")
                             if entry.get('message'):
                                 st.write(f"**Message:** {entry.get('message')}")
                             if entry.get('error'):
@@ -163,24 +163,24 @@ def display_delivery_history(logs):
             st.markdown("---")
     
     if total_entries == 0:
-        st.info("📝 No deliveries in the last 7 days")
+        st.info("No deliveries in the last 7 days")
     else:
         # Show summary statistics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total", total_entries)
         with col2:
-            st.metric("✅ Success", success_count)
+            st.metric("Success", success_count)
         with col3:
-            st.metric("❌ Failed", failed_count)
+            st.metric("Failed", failed_count)
         with col4:
-            st.metric("⏭️ Skipped", skipped_count)
+            st.metric("Skipped", skipped_count)
 
 def main():
     """Main Streamlit application"""
     
     # Header
-    st.title("📨 Delivery System (納品)")
+    st.title("Delivery System (納品)")
     st.markdown("---")
     
     # Initialize page in session state
@@ -197,6 +197,10 @@ def main():
         if st.button("Report Management (レポート管理)", use_container_width=True):
             st.session_state.current_page = "Report Management"
         
+        
+        if st.button("Automatic Delivery (自動配送)", use_container_width=True):
+            st.session_state.current_page = "Automatic Delivery"
+
         if st.button("Custom Delivery (カスタム配送)", use_container_width=True):
             st.session_state.current_page = "Custom Delivery"
         
@@ -207,25 +211,25 @@ def main():
         
         # Environment status
         # env_status = config.get_environment_status()
-        # st.subheader("⚙️ Status")
+        # st.subheader("Status")
         
         # if env_status['slack_token_set']:
-        #     st.success("✅ Slack Ready")
+        #     st.success("Slack Ready")
         # else:
-        #     st.error("❌ Slack Token Missing")
+        #     st.error("Slack Token Missing")
         
         # if env_status.get('default_channel_id'):
-        #     st.success("✅ Channel Set") 
+        #     st.success("Channel Set") 
         # else:
-        #     st.warning("⚠️ No Default Channel")
+        #     st.warning("No Default Channel")
         
         # st.markdown("---")
         
         # Scheduler status and controls
-        # st.subheader("⏰ Scheduler")
+        # st.subheader("Scheduler")
         
         # Always use GitHub Actions scheduler - more reliable than local
-        # st.info("☁️ GitHub Actions Scheduler")
+        # st.info("GitHub Actions Scheduler")
         # st.caption("Automatic scheduling via GitHub Actions")
         # st.caption("Checks every 15 minutes for scheduled reports")
         # st.caption("Runs 24/7 in the cloud - no need to keep your computer on!")
@@ -234,31 +238,36 @@ def main():
         try:
             from report_manager import report_manager
             reports = report_manager.load_reports()
-            scheduled_count = sum(1 for r in reports.values() if r.get('schedule_enabled', False))
-            if scheduled_count > 0:
-                st.success(f"✅ {scheduled_count} reports scheduled")
+            scheduled_count = sum(1 for r in reports.values() if r.get('schedule_enabled', False) or r.get('delivery_mode') == 'scheduled')
+            automatic_count = sum(1 for r in reports.values() if r.get('delivery_mode') == 'automatic')
+            
+            if scheduled_count > 0 or automatic_count > 0:
+                if scheduled_count > 0:
+                    st.success(f"{scheduled_count} scheduled report(s)")
+                if automatic_count > 0:
+                    st.success(f"{automatic_count} automatic report(s)")
                 
                 # Show next scheduled times
                 from datetime import datetime, time
                 current_hour = datetime.now().hour
                 scheduled_times = []
                 for r in reports.values():
-                    if r.get('schedule_enabled', False):
+                    if r.get('schedule_enabled', False) or r.get('delivery_mode') == 'scheduled':
                         schedule_time = r.get('schedule_time', '09:00')
                         scheduled_times.append(schedule_time)
                 
                 if scheduled_times:
                     unique_times = sorted(list(set(scheduled_times)))
-                    st.caption(f"📅 Scheduled at: {', '.join(unique_times)}")
+                    st.caption(f"Scheduled at: {', '.join(unique_times)}")
             else:
-                st.info("📝 No reports scheduled yet")
-                st.caption("� Create reports in 'Report Management' and enable scheduling")
+                st.info("No automated reports yet")
+                st.caption("� Create reports in 'Report Management' and enable automation")
         except Exception as e:
-            st.caption(f"⚠️ Could not load report count: {e}")
+            st.caption(f"Could not load report count: {e}")
         
         # GitHub Actions status check
         # st.markdown("---")
-        # st.caption("🔍 **Check Status:**")
+        # st.caption("**Check Status:**")
         # st.caption("• GitHub repo → Actions tab → Recent runs")
         # st.caption("• Email notifications for success/failure")
         # st.caption("• Slack messages appear automatically")
@@ -270,12 +279,14 @@ def main():
         delivery_parameters_page()
     elif st.session_state.current_page == "Custom Delivery":
         custom_delivery_page()
+    elif st.session_state.current_page == "Automatic Delivery":
+        automatic_delivery_page()
     elif st.session_state.current_page == "Delivery Reports":
         delivery_reports_page()
 
 def delivery_section_page():
-    """First page - Delivery List with daily reports list"""
-    st.header("📦 Delivery List")
+    """First page - Delivery List for immediate delivery"""
+    st.header("Delivery List")
     st.markdown("Here are the scheduled daily reports. Click on any report to view details.")
     
     # Import report manager
@@ -287,19 +298,19 @@ def delivery_section_page():
         if reports:
             for report_id, report in reports.items():
                 # Create expandable section for each report
-                with st.expander(f"📋 {report.get('name', report.get('thread_content', report_id))}", expanded=False):
+                with st.expander(f"{report.get('name', report.get('thread_content', report_id))}", expanded=False):
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        st.write("**👤 Author:**")
+                        st.write("**Author:**")
                         st.code(report.get('author', ''))
                     
                     with col2:
-                        st.write("**👥 Receiver:**")
+                        st.write("**Receiver:**")
                         st.code(report.get('receiver', ''))
                     
                     with col3:
-                        st.write("🔗 **Link:**")
+                        st.write("**Link:**")
                         if report.get('link'):
                             st.code(report['link'])
                         else:
@@ -310,68 +321,81 @@ def delivery_section_page():
                     
                     with stat_col1:
                         delivery_count = report.get('delivery_count', 0)
-                        st.metric("📊 Total Deliveries", delivery_count)
+                        st.metric("Total Deliveries", delivery_count)
                     
                     with stat_col2:
                         last_delivered = report.get('last_delivered')
                         if last_delivered:
                             try:
                                 last_date = datetime.fromisoformat(last_delivered).strftime('%m/%d %H:%M')
-                                st.metric("📅 Last Delivered", last_date)
+                                st.metric("Last Delivered", last_date)
                             except:
-                                st.metric("📅 Last Delivered", "Invalid date")
+                                st.metric("Last Delivered", "Invalid date")
                         else:
-                            st.metric("📅 Last Delivered", "Never")
+                            st.metric("Last Delivered", "Never")
                     
                     with stat_col3:
                         status = report.get('status', 'active')
-                        status_emoji = "🟢" if status == 'active' else "🔴" if status == 'inactive' else "📦"
-                        st.metric("🔄 Status", f"{status_emoji} {status.title()}")
+                        status_emoji = "[Active]" if status == 'active' else "[Inactive]" if status == 'inactive' else "[Other]"
+                        st.metric("Status", f"{status_emoji} {status.title()}")
                     
                     with stat_col4:
+                        delivery_mode = report.get('delivery_mode', 'manual')
                         schedule_enabled = report.get('schedule_enabled', False)
-                        schedule_emoji = "⏰" if schedule_enabled else "📝"
-                        schedule_text = "Scheduled" if schedule_enabled else "Manual"
-                        st.metric("⚙️ Mode", f"{schedule_emoji} {schedule_text}")
+                        
+                        if delivery_mode == 'automatic':
+                            schedule_emoji = "[Auto]"
+                            schedule_text = "Automatic"
+                        elif delivery_mode == 'scheduled' or schedule_enabled:
+                            schedule_emoji = "[Scheduled]"
+                            schedule_text = "Scheduled"
+                        else:
+                            schedule_emoji = "[Manual]"
+                            schedule_text = "Manual"
+                        st.metric("Mode", f"{schedule_emoji} {schedule_text}")
                             
                         
                     
                     st.markdown("---")
-                    st.write("**📋 Full Parameters (Read-Only):**")
+                    st.write("**Full Parameters (Read-Only):**")
                     
                     # Display all parameters in a clean format
                     param_col1, param_col2 = st.columns(2)
                     
                     with param_col1:
 
-                        st.write("📢 **Channel:**")
+                        st.write("**Channel:**")
                         if report.get('channel'):
                             st.code(report['channel'])
                         else:
                             st.code("(Default channel)")
 
                             
-                        st.write("📊 **Raw Data Link:**")
+                        st.write("**Raw Data Link:**")
                         if report.get('raw_data_link'):
                             st.code(report['raw_data_link'])
                         else:
                             st.code("(No raw data link)")
 
-                        st.write("⏰ **Schedule:**")
-                        if report.get('schedule_enabled', False):
+                        st.write("**Schedule:**")
+                        delivery_mode = report.get('delivery_mode', 'manual')
+                        if delivery_mode == 'automatic':
+                            automatic_task_id = report.get('automatic_task_id', '')
+                            st.code(f"Automatic (Google Sheets: {automatic_task_id})")
+                        elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
                             schedule_time = report.get('schedule_time', '09:00')
                             st.code(f"Daily at {schedule_time}")
                         else:
                             st.code("(Manual delivery only)")
                     
                     with param_col2:
-                        st.write("**🧵 Thread:**")
+                        st.write("**Thread:**")
                         if report.get('thread_content'):
                             st.code(report.get('thread_content', ''))
                         else:
                             st.code("(No thread content, sending as a new thread)")
                             
-                        st.write("📅 **Date:**")
+                        st.write("**Date:**")
                         if report.get('date'):
                             st.code(report['date'])
                         else:
@@ -380,23 +404,27 @@ def delivery_section_page():
                         
                     
                     # Schedule info
-                    if report.get('schedule_enabled', False):
+                    delivery_mode = report.get('delivery_mode', 'manual')
+                    if delivery_mode == 'automatic':
+                        automatic_task_id = report.get('automatic_task_id', '')
+                        st.success(f"Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
+                    elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
                         schedule_time = report.get('schedule_time', '09:00')
-                        st.success(f"✅ Automatic delivery enabled - Daily at {schedule_time}")
+                        st.success(f"Scheduled delivery enabled - Daily at {schedule_time}")
                     else:
-                        st.info("📝 Manual delivery only - Use Custom Delivery page to send")
+                        st.info("Manual delivery only - Use Custom Delivery page to send")
         else:
             st.info("No reports configured yet. Go to 'Report Management' to create reports.")
             
     except ImportError:
-        st.error("❌ Could not load report manager.")
+        st.error("Could not load report manager.")
     except Exception as e:
-        st.error(f"❌ Error loading reports: {e}")
+        st.error(f"Error loading reports: {e}")
 
 def delivery_parameters_page():
     """Second page - Report Management with modifying parameters"""
-    st.header("📅 Report Management")
-    st.markdown("Create, edit, and manage your delivery reports.")
+    st.header("Report Management")
+    st.markdown("Create, edit, and manage your scheduled delivery reports.")
     
     # Import report manager
     try:
@@ -418,7 +446,7 @@ def delivery_parameters_page():
                 st.rerun()
         
         with col2:
-            if st.button("📋 View All Reports", use_container_width=True):
+            if st.button("View All Reports", use_container_width=True):
                 st.session_state.creating_report = False
                 st.session_state.editing_report = None
                 st.rerun()
@@ -434,8 +462,8 @@ def delivery_parameters_page():
                 
                 with col1:
                     report_name = st.text_input("Report Name/ID", help="Unique identifier for this report")
-                    author = st.text_input("Author", help="Who is sending this report")
-                    receiver = st.text_input("Receiver", help="Who will receive this report")
+                    author = st.text_input("Author (Optional)", help="Optional: Will be mentioned in addition to authors read from Google Sheets")
+                    receiver = st.text_input("Receiver (Optional)", help="Optional: Will be mentioned in addition to receiver info from Google Sheets")
                     thread_content = st.text_input("Thread Content", help="Main content/title of the report")
                 
                 with col2:
@@ -444,49 +472,102 @@ def delivery_parameters_page():
                     channel = st.text_input("Channel", help="Optional: Specific Slack channel")
                     date = st.text_input("Date", help="Optional: Specific date format")
                 
-                # Scheduling section
+                # Delivery Mode section
                 st.markdown("---")
-                st.subheader("⏰ Automatic Scheduling (Optional)")
+                st.subheader("Delivery Mode")
                 
-                schedule_col1, schedule_col2 = st.columns(2)
+                delivery_mode = st.radio(
+                    "Select delivery mode:",
+                    ["Manual", "Scheduled", "Automatic"],
+                    index=0,
+                    help="Choose how this report should be delivered"
+                )
                 
-                with schedule_col1:
-                    schedule_enabled = st.checkbox("Enable automatic daily delivery", value=False, help="When enabled, this report will be sent automatically every day at the specified time")
-                
-                with schedule_col2:
+                if delivery_mode == "Manual":
+                    st.info("Manual delivery only - Use Custom Delivery page to send when needed")
+                    schedule_enabled = False
+                    schedule_time = datetime.now().time().replace(second=0, microsecond=0)
+                    automatic_task_id = ""
+                    
+                elif delivery_mode == "Scheduled":
+                    st.info("Scheduled delivery - Report will be sent automatically at specified time")
+                    schedule_enabled = True
                     schedule_time = st.time_input("Delivery time", value=datetime.now().time().replace(second=0, microsecond=0), help="What time to send the report daily (24-hour format)")
+                    automatic_task_id = ""
+                    st.success(f"This report will be automatically delivered every day at {schedule_time.strftime('%H:%M')}")
+                    
+                elif delivery_mode == "Automatic":
+                    st.info("Automatic delivery - Report will be sent when Google Sheets status changes to '完了'")
+                    schedule_enabled = False
+                    schedule_time = datetime.now().time().replace(second=0, microsecond=0)
+                    
+                    # Google Sheets integration fields
+                    st.markdown("**Google Sheets Integration:**")
+                    automatic_task_id = st.text_input(
+                        "Task ID (DDAMOP_XXXXX)",
+                        value="",
+                        help="Enter the DDAMOP task ID from Google Sheets to monitor for completion"
+                    )
+                    
+                    if automatic_task_id:
+                        if automatic_task_id.startswith("DDAMOP_"):
+                            st.success(f"Will monitor task {automatic_task_id} in Google Sheets")
+                        else:
+                            st.warning("Task ID should start with 'DDAMOP_' (e.g., DDAMOP_00123)")
+                    else:
+                        st.warning("Please enter a Task ID to enable automatic delivery")
                 
-                if schedule_enabled:
-                    st.info(f"📅 This report will be automatically delivered every day at {schedule_time.strftime('%H:%M')}")
-                else:
-                    st.info("📝 Scheduling is disabled. You can manually send this report from the Custom Delivery page.")
-                
-                submitted = st.form_submit_button("💾 Create Report", use_container_width=True)
+                submitted = st.form_submit_button("Create Report", use_container_width=True)
                 
                 if submitted:
-                    if report_name and author and receiver and thread_content:
+                    # Validation based on delivery mode
+                    validation_errors = []
+                    
+                    if not report_name or not report_name.strip():
+                        validation_errors.append("Report Name is required")
+                    if not thread_content or not thread_content.strip():
+                        validation_errors.append("Thread Content is required")
+                    
+                    # Additional validation for automatic mode
+                    if delivery_mode == "Automatic":
+                        if not automatic_task_id or not automatic_task_id.strip():
+                            validation_errors.append("Task ID is required for Automatic delivery mode")
+                        elif not automatic_task_id.startswith("DDAMOP_"):
+                            validation_errors.append("Task ID must start with 'DDAMOP_' (e.g., DDAMOP_00123)")
+                    
+                    if validation_errors:
+                        st.error("Please fix the following errors:")
+                        for error in validation_errors:
+                            st.error(f"• {error}")
+                    else:
                         new_report = {
-                            "name": report_name,  # Store the custom name
-                            "author": author,
-                            "receiver": receiver,
-                            "thread_content": thread_content,
-                            "link": link,
-                            "raw_data_link": raw_data_link,
-                            "channel": channel,
-                            "date": date,
+                            "name": report_name.strip(),
+                            "author": author.strip(),
+                            "receiver": receiver.strip(),
+                            "thread_content": thread_content.strip(),
+                            "link": link.strip() if link else '',
+                            "raw_data_link": raw_data_link.strip() if raw_data_link else '',
+                            "channel": channel.strip() if channel else '',
+                            "date": date.strip() if date else '',
+                            "delivery_mode": delivery_mode.lower(),  # manual, scheduled, automatic
                             "schedule_enabled": schedule_enabled,
-                            "schedule_time": schedule_time.strftime('%H:%M') if schedule_time else "09:00"
+                            "schedule_time": schedule_time.strftime('%H:%M') if schedule_time else "09:00",
+                            "automatic_task_id": automatic_task_id.strip() if automatic_task_id else ''
                         }
                         
                         report_id = report_manager.add_report(new_report)
                         if report_id:
-                            st.success(f"✅ Report '{report_name}' created successfully with ID: {report_id}!")
+                            mode_msg = {
+                                "Manual": "Manual delivery mode",
+                                "Scheduled": f"Scheduled daily at {schedule_time.strftime('%H:%M')}",
+                                "Automatic": f"Automatic delivery for task {automatic_task_id}"
+                            }
+                            st.success(f"Report '{report_name}' created successfully with ID: {report_id}!")
+                            st.info(mode_msg[delivery_mode])
                             st.session_state.creating_report = False
                             st.rerun()
                         else:
-                            st.error(f"❌ Failed to create report!")
-                    else:
-                        st.error("❌ Please fill in all required fields (Report Name, Author, Receiver, Thread Content)")
+                            st.error(f"Failed to create report!")
         
         # Show edit form if editing existing report
         elif st.session_state.editing_report:
@@ -495,15 +576,15 @@ def delivery_parameters_page():
             report_name = current_report.get('name', 'Unknown')
             report_id = st.session_state.editing_report
             
-            st.subheader(f"✏️ Edit Report: {report_name}-{report_id}")
+            st.subheader(f"Edit Report: {report_name}-{report_id}")
             
             with st.form("edit_report_form"):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     name = st.text_input("Report Name/ID", value=current_report.get('name', ''), help="Unique identifier for this report")
-                    author = st.text_input("Author", value=current_report.get('author', ''), help="Who is sending this report")
-                    receiver = st.text_input("Receiver", value=current_report.get('receiver', ''), help="Who will receive this report")
+                    author = st.text_input("Author (Optional)", value=current_report.get('author', ''), help="Optional: Will be mentioned in addition to authors read from Google Sheets")
+                    receiver = st.text_input("Receiver (Optional)", value=current_report.get('receiver', ''), help="Optional: Will be mentioned in addition to receiver info from Google Sheets")
                     thread_content = st.text_input("Thread Content", value=current_report.get('thread_content', ''), help="Optional: Main content/title of the report")
                 
                 with col2:
@@ -512,18 +593,38 @@ def delivery_parameters_page():
                     channel = st.text_input("Channel", value=current_report.get('channel', ''), help="Optional: Specific Slack channel")
                     date = st.text_input("Date", value=current_report.get('date', ''), help="Optional: Specific date format")
                 
-                # Scheduling section
+                # Delivery Mode section
                 st.markdown("---")
-                st.subheader("⏰ Automatic Scheduling (Optional)")
+                st.subheader("Delivery Mode")
                 
-                schedule_col1, schedule_col2 = st.columns(2)
+                # Determine current delivery mode
+                current_delivery_mode = current_report.get('delivery_mode', 'manual')
+                if current_delivery_mode == 'manual':
+                    mode_index = 0
+                elif current_delivery_mode == 'scheduled':
+                    mode_index = 1
+                elif current_delivery_mode == 'automatic':
+                    mode_index = 2
+                else:
+                    mode_index = 0  # Default to manual
                 
-                with schedule_col1:
-                    schedule_enabled = st.checkbox("Enable automatic daily delivery", 
-                                                 value=current_report.get('schedule_enabled', False), 
-                                                 help="When enabled, this report will be sent automatically every day at the specified time")
+                delivery_mode = st.radio(
+                    "Select delivery mode:",
+                    ["Manual", "Scheduled", "Automatic"],
+                    index=mode_index,
+                    help="Choose how this report should be delivered"
+                )
                 
-                with schedule_col2:
+                if delivery_mode == "Manual":
+                    st.info("Manual delivery only - Use Custom Delivery page to send when needed")
+                    schedule_enabled = False
+                    schedule_time = datetime.now().time().replace(second=0, microsecond=0)
+                    automatic_task_id = ""
+                    
+                elif delivery_mode == "Scheduled":
+                    st.info("Scheduled delivery - Report will be sent automatically at specified time")
+                    schedule_enabled = True
+                    
                     # Parse existing time or use default
                     default_time = datetime.now().time().replace(second=0, microsecond=0)
                     if current_report.get('schedule_time'):
@@ -536,26 +637,60 @@ def delivery_parameters_page():
                     schedule_time = st.time_input("Delivery time", 
                                                 value=default_time, 
                                                 help="What time to send the report daily (24-hour format)")
-                
-                if schedule_enabled:
-                    st.info(f"📅 This report will be automatically delivered every day at {schedule_time.strftime('%H:%M')}")
-                else:
-                    st.info("📝 Scheduling is disabled. You can manually send this report from the Custom Delivery page.")
-                
+                    automatic_task_id = ""
+                    st.success(f"This report will be automatically delivered every day at {schedule_time.strftime('%H:%M')}")
+                    
+                elif delivery_mode == "Automatic":
+                    st.info("Automatic delivery - Report will be sent when Google Sheets status changes to '完了'")
+                    schedule_enabled = False
+                    schedule_time = datetime.now().time().replace(second=0, microsecond=0)
+                    
+                    # Google Sheets integration fields
+                    st.markdown("**Google Sheets Integration:**")
+                    automatic_task_id = st.text_input(
+                        "Task ID (DDAMOP_XXXXX)",
+                        value=current_report.get('automatic_task_id', ''),
+                        help="Enter the DDAMOP task ID from Google Sheets to monitor for completion"
+                    )
+                    
+                    if automatic_task_id:
+                        if automatic_task_id.startswith("DDAMOP_"):
+                            st.success(f"Will monitor task {automatic_task_id} in Google Sheets")
+                        else:
+                            st.warning("Task ID should start with 'DDAMOP_' (e.g., DDAMOP_00123)")
+                    else:
+                        st.warning("Please enter a Task ID to enable automatic delivery")
+
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    save_clicked = st.form_submit_button("� Save Changes", use_container_width=True)
+                    save_clicked = st.form_submit_button("Save Changes", use_container_width=True)
                 
                 with col2:
-                    cancel_clicked = st.form_submit_button("❌ Cancel", use_container_width=True)
+                    cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
                 
                 with col3:
-                    delete_clicked = st.form_submit_button("🗑️ Delete Report", use_container_width=True)
+                    delete_clicked = st.form_submit_button("Delete Report", use_container_width=True)
                 
                 if save_clicked:
-                    # Only require Name, Author, and Receiver - Thread Content is optional
-                    if name and name.strip() and author and author.strip() and receiver and receiver.strip():
+                    # Validation based on delivery mode
+                    validation_errors = []
+                    
+                    if not name or not name.strip():
+                        validation_errors.append("Report Name is required")
+                    
+                    # Additional validation for automatic mode
+                    if delivery_mode == "Automatic":
+                        if not automatic_task_id or not automatic_task_id.strip():
+                            validation_errors.append("Task ID is required for Automatic delivery mode")
+                        elif not automatic_task_id.startswith("DDAMOP_"):
+                            validation_errors.append("Task ID must start with 'DDAMOP_' (e.g., DDAMOP_00123)")
+                    
+                    if validation_errors:
+                        st.error("Please fix the following errors:")
+                        for error in validation_errors:
+                            st.error(f"• {error}")
+                    else:
                         updated_report = {
                             "name": name.strip(),
                             "author": author.strip(),
@@ -565,26 +700,25 @@ def delivery_parameters_page():
                             "raw_data_link": raw_data_link.strip() if raw_data_link else '',
                             "channel": channel.strip() if channel else '',
                             "date": date.strip() if date else '',
+                            "delivery_mode": delivery_mode.lower(),  # manual, scheduled, automatic
                             "schedule_enabled": schedule_enabled,
-                            "schedule_time": schedule_time.strftime('%H:%M') if schedule_time else "09:00"
+                            "schedule_time": schedule_time.strftime('%H:%M') if schedule_time else "09:00",
+                            "automatic_task_id": automatic_task_id.strip() if automatic_task_id else ''
                         }
                         
                         success = report_manager.update_report(st.session_state.editing_report, updated_report)
                         if success:
-                            st.success(f"✅ Report '{name.strip()}' updated successfully!")
+                            mode_msg = {
+                                "Manual": "Manual delivery mode",
+                                "Scheduled": f"Scheduled daily at {schedule_time.strftime('%H:%M')}",
+                                "Automatic": f"Automatic delivery for task {automatic_task_id}"
+                            }
+                            st.success(f"Report '{name.strip()}' updated successfully!")
+                            st.info(mode_msg[delivery_mode])
                             st.session_state.editing_report = None
                             st.rerun()
                         else:
-                            st.error("❌ Failed to update report!")
-                    else:
-                        st.error("❌ Please fill in all required fields (Report Name, Author, Receiver)")
-                        st.error("Missing fields:")
-                        if not (name and name.strip()):
-                            st.error("- Report Name is empty")
-                        if not (author and author.strip()):
-                            st.error("- Author is empty")
-                        if not (receiver and receiver.strip()):
-                            st.error("- Receiver is empty")
+                            st.error("Failed to update report!")
                 
                 if cancel_clicked:
                     st.session_state.editing_report = None
@@ -593,56 +727,56 @@ def delivery_parameters_page():
                 if delete_clicked:
                     success = report_manager.delete_report(st.session_state.editing_report)
                     if success:
-                        st.success(f"✅ Report '{st.session_state.editing_report}' deleted successfully!")
+                        st.success(f"Report '{st.session_state.editing_report}' deleted successfully!")
                         st.session_state.editing_report = None
                         st.rerun()
                     else:
-                        st.error("❌ Failed to delete report!")
+                        st.error("Failed to delete report!")
         
         # Show all reports list (default view)
         else:
-            st.subheader("📋 All Reports")
-            
+            st.subheader("All Reports")
+
             reports = report_manager.load_reports()
             
             if reports:
                 for report_id, report in reports.items():
                     # Create expandable section for each report (matching first page style)
-                    with st.expander(f"📋 {report.get('name', report.get('thread_content', report_id))}", expanded=False):
+                    with st.expander(f"{report.get('name', report.get('thread_content', report_id))}", expanded=False):
                         # Header row with main info and edit button
                         header_col1, header_col2, header_col3, edit_col = st.columns([1, 1, 1, 1])
                         
                         with header_col1:
-                            st.write("**� Author:**")
+                            st.write("**Author:**")
                             st.code(report.get('author', ''))
                         
                         with header_col2:
-                            st.write("**👥 Receiver:**")
+                            st.write("**Receiver:**")
                             st.code(report.get('receiver', ''))
                         
                         with header_col3:
-                            st.write("🔗 **Link:**")
+                            st.write("**Link:**")
                             if report.get('link'):
                                 st.code(report['link'])
                             else:
                                 st.code("(No link)")
                         
                         with edit_col:
-                            st.write("**⚙️ Actions:**")
-                            if st.button(f"✏️ Edit", key=f"edit_{report_id}", use_container_width=True):
+                            st.write("**Actions:**")
+                            if st.button(f"Edit", key=f"edit_{report_id}", use_container_width=True):
                                 st.session_state.editing_report = report_id
                                 st.session_state.creating_report = False
                                 st.rerun()
                         
                         st.markdown("---")
-                        st.write("**📋 Full Parameters:**")
+                        st.write("**Full Parameters:**")
                         
                         # Display all parameters in a clean format
                         param_col1, param_col2 = st.columns(2)
                         
                         with param_col1:
 
-                            st.write("📢 **Channel:**")
+                            st.write("**Channel:**")
                             if report.get('channel'):
                                 st.code(report['channel'])
                             else:
@@ -650,14 +784,20 @@ def delivery_parameters_page():
 
                             
                                 
-                            st.write("📊 **Raw Data Link:**")
+                            st.write("**Raw Data Link:**")
                             if report.get('raw_data_link'):
                                 st.code(report['raw_data_link'])
                             else:
                                 st.code("(No raw data link)")
 
-                            st.write("⏰ **Schedule:**")
-                            if report.get('schedule_enabled', False):
+
+
+                            st.write("**Schedule:**")
+                            delivery_mode = report.get('delivery_mode', 'manual')
+                            if delivery_mode == 'automatic':
+                                automatic_task_id = report.get('automatic_task_id', '')
+                                st.code(f"Automatic (Google Sheets: {automatic_task_id})")
+                            elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
                                 schedule_time = report.get('schedule_time', '09:00')
                                 st.code(f"Daily at {schedule_time}")
                             else:
@@ -665,13 +805,13 @@ def delivery_parameters_page():
                         
                         with param_col2:
 
-                            st.write("**🧵 Thread:**")
+                            st.write("**Thread:**")
                             if report.get('thread_content'):
                                 st.code(report.get('thread_content', ''))
                             else:
                                 st.code("(No thread content, sending as a new thread)")
                                 
-                            st.write("📅 **Date:**")
+                            st.write("**Date:**")
                             if report.get('date'):
                                 st.code(report['date'])
                             else:
@@ -680,23 +820,29 @@ def delivery_parameters_page():
                             
                         
                         # Management info with scheduling status
-                        if report.get('schedule_enabled', False):
+                        delivery_mode = report.get('delivery_mode', 'manual')
+                        if delivery_mode == 'automatic':
+                            automatic_task_id = report.get('automatic_task_id', '')
+                            st.success(f"Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
+                        elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
                             schedule_time = report.get('schedule_time', '09:00')
-                            st.success(f"✅ Automatic delivery enabled - Daily at {schedule_time}")
+                            st.success(f"Scheduled delivery enabled - Daily at {schedule_time}")
                         else:
-                            st.info("📝 Manual delivery only - Click Edit to enable scheduling")
+                            st.info("Manual delivery only - Click Edit to enable scheduling")
                         
                         st.markdown("---")
             else:
-                st.info("📝 No reports configured yet. Click 'Create New Report' to get started.")
-        
+                st.info("No reports configured yet. Click 'Create New Report' to get started.")
+
     except ImportError:
-        st.error("❌ Could not load report manager.")
+        st.error("Could not load report manager.")
     except Exception as e:
-        st.error(f"❌ Error managing reports: {e}")
+        st.error(f"Error managing reports: {e}")
 
 def custom_delivery_page():
     """Third page - Custom Delivery (original form)"""
+    st.header("Custom Delivery")
+
     # Get environment status
     env_status = config.get_environment_status()
     
@@ -707,14 +853,14 @@ def custom_delivery_page():
         st.stop()
     
     # Main form
-    st.header("📝 Custom Delivery")
+    st.header("Custom Delivery")
     
     # Create two columns for method selection and form controls
     method_col, controls_col = st.columns([2, 1])
     
     with method_col:
         # Content delivery method selection (outside form for immediate updates)
-        st.subheader("📎 Content Delivery Method")
+        st.subheader("Content Delivery Method")
         delivery_method = st.radio(
             "How do you want to share content?",
             ["Send file link", "Send file directly"],
@@ -722,7 +868,7 @@ def custom_delivery_page():
         )
     
     with controls_col:
-        st.subheader("📋 Form Controls")
+        st.subheader("Form Controls")
         st.caption("Manage your form data")
         
         # Load from reports dropdown
@@ -733,7 +879,7 @@ def custom_delivery_page():
             if reports:
                 report_options = ["Select a report..."] + [f"{report.get('name', report_id)} ({report_id})" for report_id, report in reports.items()]
                 selected_report = st.selectbox(
-                    "📋 Load from Report",
+                    "Load from Report",
                     options=report_options,
                     help="Choose a report to automatically load its parameters"
                 )
@@ -766,12 +912,12 @@ def custom_delivery_page():
                     else:
                         st.error("Selected report not found!")
             else:
-                st.info("📝 No reports available. Create reports in 'Report Management' first.")
+                st.info("No reports available. Create reports in 'Report Management' first.")
         except ImportError:
-            st.error("❌ Could not load report manager.")
+            st.error("Could not load report manager.")
         
         # Clear form button
-        if st.button("🗑️ Clear Form", use_container_width=True):
+        if st.button("Clear Form", use_container_width=True):
             # Get current form key to clear the right FormSubmitter
             current_form_key = st.session_state.get('form_key', 0)
             
@@ -791,7 +937,7 @@ def custom_delivery_page():
             # Increment form key to force form recreation
             st.session_state['form_key'] = current_form_key + 1
             
-            st.success("✅ Form cleared!")
+            st.success("Form cleared!")
             st.rerun()
         
     st.markdown("---")
@@ -803,20 +949,20 @@ def custom_delivery_page():
     with st.form(f"delivery_form_{form_key}", clear_on_submit=False):
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("📋 Required Information")
+            st.subheader("Required Information")
             # Add Name field above Author
             name = st.text_input(
-                "📛 Name (required if saving as report)",
+                "Name (required if saving as report)",
                 value=st.session_state.get('form_name', ''),
                 help="Report name/title. Required only if you want to save as a report template."
             )
             author = st.text_input(
-                "👤 Author (作成者)",
+                "Author (作成者)",
                 value=st.session_state.get('form_author', ''),
                 help="Your name/username"
             )
             receiver = st.text_input(
-                "👥 Receiver (受信者)",
+                "Receiver (受信者)",
                 value=st.session_state.get('form_receiver', ''),
                 help="Person to mention/notify"
             )
@@ -825,14 +971,14 @@ def custom_delivery_page():
             uploaded_file = None
             
             if delivery_method == "Send file link":
-                # st.write("🔗 **Link Input Section**")
+                # st.write("**Link Input Section**")
                 link = st.text_input(
                     "Main Link (格納先)",
                     value=st.session_state.get('form_link', ''),
                     help="File link/URL to share"
                 )
             else:  # Send file directly
-                st.write("📁 **File Upload Section**")
+                st.write("**File Upload Section**")
                 uploaded_file = st.file_uploader(
                     "Upload a file to share",
                     type=None,  # Allow all file types
@@ -841,33 +987,33 @@ def custom_delivery_page():
                 )
                 
                 if uploaded_file is not None:
-                    st.info(f"✅ File ready: {uploaded_file.name} ({uploaded_file.size:,} bytes)")
+                    st.info(f"File ready: {uploaded_file.name} ({uploaded_file.size:,} bytes)")
                 else:
-                    st.info("👆 Please select a file to upload")
+                    st.info("Please select a file to upload")
         
         with col2:
-            st.subheader("⚙️ Optional Settings")
+            st.subheader("Optional Settings")
             
             raw_data_link = st.text_input(
-                "📊 Raw Data Link",
+                "Raw Data Link",
                 value=st.session_state.get('form_raw_data_link', ''),
                 help="Raw data spreadsheet link (optional)"
             )
             
             channel = st.text_input(
-                "📢 Channel Name",
+                "Channel Name",
                 value=st.session_state.get('form_channel', ''),
                 help="Override default channel (optional)"
             )
 
             thread_content = st.text_input(
-                "📝 Thread Content (for finding existing thread)",
+                "Thread Content (for finding existing thread)",
                 value=st.session_state.get('form_thread_content', ''),
                 help="Text content to find matching thread"
             )
 
             thread_ts = st.text_input(
-                "🔢 Thread Timestamp",
+                "Thread Timestamp",
                 value=st.session_state.get('form_thread_ts', ''),
                 help="Specific thread timestamp (optional)"
             )
@@ -885,7 +1031,7 @@ def custom_delivery_page():
                     pass
             
             date = st.date_input(
-                "📅 Delivery Date",
+                "Delivery Date",
                 value=default_date,
                 help="Date for the delivery message"
             )
@@ -893,11 +1039,11 @@ def custom_delivery_page():
         # Form submission
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
-            submit_button = st.form_submit_button("🚀 Send Delivery", use_container_width=True)
+            submit_button = st.form_submit_button("Send Delivery", use_container_width=True)
         with col3:
             # Save as report button (only for Send file link)
             if delivery_method == "Send file link":
-                save_report_btn = st.form_submit_button("💾 Save as report", use_container_width=True)
+                save_report_btn = st.form_submit_button("Save as report", use_container_width=True)
                 if save_report_btn:
                     if not name:
                         st.error("Name is required to save as report.")
@@ -944,7 +1090,7 @@ def handle_form_submission(author, receiver, link, uploaded_file, raw_data_link,
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        st.success(f"✅ File saved: {file_path}")
+        st.success(f"File saved: {file_path}")
     
     # Validate required fields
     errors = []
@@ -988,29 +1134,223 @@ def handle_form_submission(author, receiver, link, uploaded_file, raw_data_link,
         st.session_state['last_params'] = params
         
         # Show preview
-        st.subheader("📋 Delivery Preview")
-        with st.expander("📄 Message Preview", expanded=True):
+        st.subheader("Delivery Preview")
+        with st.expander("Message Preview", expanded=True):
             preview_text = format_delivery_preview(params)
             st.markdown(preview_text)
         
         # Execute delivery
-        with st.spinner("🚀 Sending delivery..."):
+        with st.spinner("Sending delivery..."):
             result = DeliveryExecutor.execute(SlackDeliverySimple, params)
         
         # Show results
-        st.subheader("📊 Delivery Results")
+        st.subheader("Delivery Results")
         display_delivery_results(result)
 
+def automatic_delivery_page():
+    """Fourth page - Automatic Delivery showing reports set to automatic mode"""
+    st.header("Automatic Delivery")
+    st.markdown("Monitor and manage reports that are set to automatic delivery mode.")
+    
+    # Import required modules
+    try:
+        from report_manager import report_manager
+        
+        # Try to import Google Sheets service (optional)
+        google_sheets_available = False
+        try:
+            from google_sheets_service import GoogleSheetsService
+            google_sheets_available = True
+        except ImportError as gs_error:
+            st.warning(f"Google Sheets integration not available: {gs_error}")
+            st.info("Install Google API dependencies: pip install google-api-python-client google-auth")
+        
+        # Load all reports and filter for automatic ones
+        reports = report_manager.load_reports()
+        automatic_reports = {
+            report_id: report for report_id, report in reports.items() 
+            if report.get('delivery_mode') == 'automatic'
+        }
+        
+        # Configuration section
+        st.subheader("Configuration")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Enable/disable automatic delivery with session state persistence
+            if 'auto_delivery_enabled' not in st.session_state:
+                st.session_state.auto_delivery_enabled = False
+                
+            enabled = st.checkbox(
+                "Enable Automatic Delivery System", 
+                value=st.session_state.auto_delivery_enabled,
+                help="Check this to start automatic delivery monitoring",
+                key="auto_delivery_checkbox"
+            )
+            
+            # Update session state when checkbox changes
+            st.session_state.auto_delivery_enabled = enabled
+            
+            if enabled:
+                st.success("Automatic delivery system enabled")
+                st.info("System will check Google Sheets every 5 minutes and deliver reports when status = '完了'")
+            else:
+                st.info("Automatic delivery system is disabled")
+        
+        with col2:
+            # Check Google Sheets connection
+            st.write("**Google Sheets Connection:**")
+            if google_sheets_available:
+                try:
+                    status_url = st.secrets.get("GOOGLE_SHEETS_STATUS_URL") if hasattr(st, 'secrets') else None
+                    
+                    if status_url:
+                        gs = GoogleSheetsService()
+                        if gs.service:
+                            st.success("✅ Google Sheets connected")
+                        else:
+                            st.error("Google Sheets connection failed")
+                    else:
+                        st.warning("Google Sheets URL not configured")
+                        
+                except Exception as e:
+                    st.error(f"Google Sheets error: {e}")
+            else:
+                st.error("Google Sheets service not available")
+                st.caption("Install required dependencies to enable Google Sheets integration")
+        
+        st.markdown("---")
+        
+        # Reports in automatic mode
+        st.subheader("Reports in Automatic Mode")
+        
+        if automatic_reports:
+            st.success(f"Found {len(automatic_reports)} report(s) set to automatic delivery mode:")
+            
+            for report_id, report in automatic_reports.items():
+                with st.expander(f"📄 {report.get('name', report_id)}", expanded=False):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Report Details:**")
+                        st.write(f"**Report ID:** {report_id}")
+                        st.write(f"**Name:** {report.get('name', 'No name')}")
+                        st.write(f"**Author:** {report.get('author', 'Not specified')}")
+                        st.write(f"**Receiver:** {report.get('receiver', 'Not specified')}")
+                        st.write(f"**Channel:** {report.get('channel', 'Default channel')}")
+                    
+                    with col2:
+                        st.markdown("**Automatic Settings:**")
+                        st.write(f"**Delivery Mode:** {report.get('delivery_mode', 'Unknown')}")
+                        st.write(f"**Google Sheets Monitoring:** Enabled")
+                        st.write(f"**Status Column:** ステータス")
+                        st.write(f"**Time Column:** 納品時間（日本時間）")
+                        st.write(f"**Trigger Status:** 完了")
+                        
+                        # Show recent activity for this report (would come from GitHub storage)
+                        st.markdown("**Recent Activity:**")
+                        st.caption("🕐 Last checked: 09:55 JST")
+                        st.caption("� Current status: Monitoring")
+                        st.caption("📨 Last delivery: Not delivered today")
+        
+        else:
+            st.info("No reports are currently set to automatic delivery mode.")
+            st.markdown("""
+            **To add reports to automatic delivery:**
+            1. Go to 'Report Management' page
+            2. Create or edit a report
+            3. Set delivery mode to 'Automatic'
+            4. The report will appear here and be monitored automatically
+            """)
+        
+        st.markdown("---")
+        
+        # Status monitoring section
+        if automatic_reports and enabled:
+            st.subheader(" System Status")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Active Reports", len(automatic_reports))
+            
+            with col2:
+                # This would come from GitHub storage logs
+                st.metric("Delivered Today", "0")
+            
+            
+            # Recent activity log
+            st.subheader("Recent Activity")
+            
+            # This would come from GitHub storage delivery logs
+            # st.info("Activity log will appear here once automatic deliveries start running.")
+            
+            # # Show sample activity for demonstration
+            # with st.expander(" Sample Activity Log", expanded=False):
+            #     sample_activities = [
+            #         {"time": "09:55", "report": "Sample Report 1", "status": "⏳ Checking", "action": "Status check"},
+            #         {"time": "09:50", "report": "Sample Report 2", "status": "✅ Delivered", "action": "Delivered to Slack"},
+            #         {"time": "09:45", "report": "Sample Report 3", "status": "⏭️ Not ready", "action": "Status not '完了'"},
+            #     ]
+                
+            #     for activity in sample_activities:
+            #         col1, col2, col3, col4 = st.columns([2, 3, 2, 3])
+            #         with col1:
+            #             st.write(activity["time"])
+            #         with col2:
+            #             st.write(activity["report"])
+            #         with col3:
+            #             st.write(activity["status"])
+            #         with col4:
+            #             st.write(activity["action"])
+        
+        # How it works section
+        with st.expander("❓ How Automatic Delivery Works"):
+            st.markdown("""
+            **Automatic Delivery Process:**
+            
+            1. **Report Setup**: Reports must be set to 'Automatic' delivery mode in Report Management
+            2. **Google Sheets Monitoring**: System reads status and delivery time from Google Sheets
+            3. **Time-Based Checking**: Checks 5 minutes before each report's scheduled delivery time
+            4. **Status Verification**: Only delivers if status is '完了' (completed)
+            5. **One-Time Delivery**: Each report can only be delivered once per day
+            6. **Slack Integration**: Delivers using the same format as manual/scheduled reports
+            
+            **Author & Receiver Logic:**
+            - **Google Sheets Authors**: Always reads from columns: (1次作成者）, (2次確認), 納品者
+            - **Report Config Authors**: If provided in report settings, mentioned **in addition** to sheet authors
+            - **Final Message**: Combines both sheet authors and configured authors/receivers
+            
+            **Requirements:**
+            - Report must be configured with automatic delivery mode
+            - Google Sheets must be accessible with proper permissions
+            - Report name in Google Sheets must match the report configuration
+            - Status column must contain '完了' when ready for delivery
+            
+            **Timing:**
+            - System runs every 15 minutes via GitHub Actions
+            - Checks only occur 5 minutes before scheduled delivery time
+            - Example: Report scheduled for 10:00 → checked at 09:55
+            """)
+    
+    except ImportError as e:
+        st.error(f"❌ Failed to import required modules: {e}")
+        st.info("Please ensure report_manager and google_sheets_service are properly configured.")
+    except Exception as e:
+        st.error(f"❌ Error in automatic delivery page: {e}")
+
+
 def delivery_reports_page():
-    """Fourth page - Delivery Reports and History"""
-    st.header("📊 Delivery Reports")
+    """Fifth page - Delivery Reports and History"""
+    st.header(" Delivery Reports")
     st.markdown("View delivery history, statistics, and GitHub Actions status.")
     
     # Load delivery logs
     delivery_logs = load_delivery_logs()
     
     if not delivery_logs:
-        st.info("📝 No delivery history yet. Deliveries will appear here after GitHub Actions runs.")
+        st.info("No delivery history yet. Deliveries will appear here after GitHub Actions runs.")
         st.markdown("---")
         st.subheader("🚀 How to Generate Delivery Reports")
         st.markdown("""
@@ -1078,7 +1418,7 @@ def delivery_reports_page():
     st.markdown("---")
     
     # Time Range Selector
-    st.subheader("📅 Delivery History")
+    st.subheader(" Delivery History")
     
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -1113,7 +1453,7 @@ def delivery_reports_page():
         st.markdown("• Slack messages appear automatically")
     
     with col2:
-        st.markdown("**📊 Scheduled Reports:**")
+        st.markdown("** Scheduled Reports:**")
         try:
             from report_manager import report_manager
             reports = report_manager.load_reports()
@@ -1133,7 +1473,7 @@ def delivery_reports_page():
 def display_filtered_delivery_history(logs, days_to_show, show_success, show_failed, show_skipped):
     """Display delivery history with filters applied"""
     if not logs:
-        st.info("📝 No delivery history available")
+        st.info("No delivery history available")
         return
     
     # Get date range
@@ -1161,7 +1501,7 @@ def display_filtered_delivery_history(logs, days_to_show, show_success, show_fai
                     filtered_entries.append(entry)
             
             if filtered_entries:
-                st.write(f"**📅 {date}**")
+                st.write(f"** {date}**")
                 
                 for entry in filtered_entries:
                     total_shown += 1
@@ -1211,7 +1551,7 @@ def display_filtered_delivery_history(logs, days_to_show, show_success, show_fai
                 st.markdown("---")
     
     if total_shown == 0:
-        st.info("📝 No deliveries match the selected filters in the specified time range")
+        st.info("No deliveries match the selected filters in the specified time range")
     else:
         st.caption(f"Showing {total_shown} delivery records")
 

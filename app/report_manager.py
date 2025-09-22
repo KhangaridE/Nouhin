@@ -77,8 +77,10 @@ class ReportManager:
             'thread_content': data.get('thread_content', ''),
             'thread_ts': data.get('thread_ts', None),
             'date': data.get('date', ''),
+            'delivery_mode': data.get('delivery_mode', 'manual'),  # manual, scheduled, automatic
             'schedule_enabled': data.get('schedule_enabled', False),
             'schedule_time': data.get('schedule_time', '09:00'),
+            'automatic_task_id': data.get('automatic_task_id', ''),  # DDAMOP_XXXXX for automatic mode
             'created_at': data.get('created_at', ''),
             'updated_at': data.get('updated_at', ''),
             'last_delivered': data.get('last_delivered', None),
@@ -183,6 +185,40 @@ class ReportManager:
         if migrated:
             return self.save_reports(reports)
         return True
+    
+    def get_automatic_reports(self) -> Dict[str, Any]:
+        """Get all reports configured for automatic delivery"""
+        reports = self.load_reports()
+        automatic_reports = {}
+        
+        for report_id, report_data in reports.items():
+            if report_data.get('delivery_mode') == 'automatic' and report_data.get('automatic_task_id'):
+                automatic_reports[report_id] = report_data
+        
+        return automatic_reports
+    
+    def get_reports_by_delivery_mode(self, mode: str) -> Dict[str, Any]:
+        """Get reports filtered by delivery mode"""
+        reports = self.load_reports()
+        filtered_reports = {}
+        
+        for report_id, report_data in reports.items():
+            if report_data.get('delivery_mode') == mode:
+                filtered_reports[report_id] = report_data
+        
+        return filtered_reports
+    
+    def update_automatic_delivery_status(self, report_id: str, delivered: bool = True) -> bool:
+        """Update automatic delivery status to prevent duplicate deliveries"""
+        reports = self.load_reports()
+        
+        if report_id in reports:
+            if delivered:
+                reports[report_id]['last_auto_delivered'] = datetime.now().isoformat()
+                reports[report_id]['delivery_count'] = reports[report_id].get('delivery_count', 0) + 1
+            reports[report_id]['updated_at'] = datetime.now().isoformat()
+            return self.save_reports(reports)
+        return False
 
 # Create global instance
 report_manager = ReportManager()

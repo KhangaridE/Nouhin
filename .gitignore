@@ -50,3 +50,6 @@ env/
 # Logs
 logs/
 *.log
+# Ignore secret files
+.streamlit/secrets.toml
+google-service-account.json

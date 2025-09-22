@@ -1,0 +1,92 @@
+name: Smart Automatic Delivery Monitor
+
+on:
+  schedule:
+    # Run every minute during business hours to check if we're in a delivery window
+    # The script itself will determine if it's within 5 minutes of any deadline
+    - cron: '* 23,0-14 * * *'  # 08:00-22:59 JST (converted to UTC)
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  monitor-automatic-deliveries:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-automatic-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Smart automatic delivery check
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID: ${{ secrets.DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID }}
+        STORAGE_TOKEN: ${{ secrets.STORAGE_TOKEN }}
+        GITHUB_REPO_OWNER: KhangaridE
+        GITHUB_REPO_NAME: nouhin_client_info
+        GITHUB_BRANCH: main
+        TZ: Asia/Tokyo
+        GITHUB_ACTIONS: true
+        GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+        AUTOMATIC_DELIVERY_STATUS_SHEET_URL: ${{ secrets.AUTOMATIC_DELIVERY_STATUS_SHEET_URL }}
+        AUTOMATIC_DELIVERY_METADATA_SHEET_URL: ${{ secrets.AUTOMATIC_DELIVERY_METADATA_SHEET_URL }}
+      run: |
+        python -c "
+        import sys
+        from datetime import datetime
+        sys.path.insert(0, 'app')
+        
+        print(f'🕐 Checking at {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S JST\")}')
+        
+        try:
+            from enhanced_automatic_delivery_manager import enhanced_automatic_delivery_manager
+            
+            # This will only process if we're within 5 minutes of any deadline
+            results = enhanced_automatic_delivery_manager.process_automatic_deliveries()
+            
+            delivered_count = sum(1 for r in results if r.get('status') == 'delivered')
+            not_ready_count = sum(1 for r in results if r.get('status') == 'not_ready')  
+            failed_count = sum(1 for r in results if r.get('status') == 'failed')
+            
+            if delivered_count > 0:
+                print(f'✅ {delivered_count} automatic deliveries completed!')
+            if not_ready_count > 0:
+                print(f'⏳ {not_ready_count} reports not ready yet')
+            if failed_count > 0:
+                print(f'❌ {failed_count} deliveries failed')
+            if len(results) == 0:
+                print('ℹ️  No reports in delivery window right now')
+                
+        except Exception as e:
+            print(f'❌ Automatic delivery check failed: {e}')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        "
+    
+    - name: Commit delivery logs if any deliveries occurred
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action [Smart Auto Delivery]"
+        git add -A
+        git diff --staged --quiet || git commit -m "📦 Automatic delivery completed at $(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M JST')"
+        git push || true
