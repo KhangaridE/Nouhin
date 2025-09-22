@@ -284,10 +284,115 @@ def main():
     elif st.session_state.current_page == "Delivery Reports":
         delivery_reports_page()
 
+def display_report_card(report_id, report):
+    """Display a single report card with all details"""
+    # Create expandable section for each report
+    with st.expander(f"{report.get('name', report.get('thread_content', report_id))}", expanded=False):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("**Author:**")
+            st.code(report.get('author', ''))
+        
+        with col2:
+            st.write("**Receiver:**")
+            st.code(report.get('receiver', ''))
+        
+        with col3:
+            st.write("**Link:**")
+            if report.get('link'):
+                st.link_button("📄 View File", report.get('link'))
+            else:
+                st.code("No link")
+        
+        # Add delivery statistics row
+        stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
+        
+        with stat_col1:
+            delivery_count = report.get('delivery_count', 0)
+            st.metric("Total Deliveries", delivery_count)
+        
+        with stat_col2:
+            last_delivered = report.get('last_delivered')
+            if last_delivered:
+                st.metric("Last Delivered", last_delivered)
+            else:
+                st.metric("Last Delivered", "Never")
+        
+        with stat_col3:
+            status = report.get('status', 'active')
+            st.metric("Status", f"{status.title()}")
+        
+        with stat_col4:
+            delivery_mode = report.get('delivery_mode', 'manual')
+            schedule_enabled = report.get('schedule_enabled', False)
+            
+            if delivery_mode == 'automatic':
+                schedule_text = " Auto"
+            elif delivery_mode == 'scheduled' or schedule_enabled:
+                schedule_text = "Scheduled"
+            else:
+                schedule_text = " Manual"
+            st.metric("Mode", f"{schedule_text}")
+                
+        st.markdown("---")
+        st.write("**Full Parameters (Read-Only):**")
+        
+        # Display all parameters in a clean format
+        param_col1, param_col2 = st.columns(2)
+        
+        with param_col1:
+            st.write("**Channel:**")
+            if report.get('channel'):
+                st.code(report.get('channel'))
+            else:
+                st.code("Default channel")
+                
+            st.write("**Raw Data Link:**")
+            if report.get('raw_data_link'):
+                st.link_button("📊 Raw Data", report.get('raw_data_link'))
+            else:
+                st.code("No raw data link")
+
+            st.write("**Schedule:**")
+            delivery_mode = report.get('delivery_mode', 'manual')
+            if delivery_mode == 'automatic':
+                automatic_task_id = report.get('automatic_task_id', 'Not configured')
+                st.code(f"Google Sheets Task: {automatic_task_id}")
+            elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
+                schedule_time = report.get('schedule_time', '09:00')
+                st.code(f"Daily at {schedule_time}")
+            else:
+                st.code("Manual delivery only")
+        
+        with param_col2:
+            st.write("**Thread:**")
+            if report.get('thread_content'):
+                st.code(report.get('thread_content'))
+            else:
+                st.code("No thread content")
+                
+            st.write("**Date:**")
+            if report.get('date'):
+                st.code(report.get('date'))
+            else:
+                st.code("No specific date")
+        
+        # Schedule info
+        delivery_mode = report.get('delivery_mode', 'manual')
+        if delivery_mode == 'automatic':
+            automatic_task_id = report.get('automatic_task_id', '')
+            st.success(f" Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
+        elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
+            schedule_time = report.get('schedule_time', '09:00')
+            st.success(f"Scheduled delivery enabled - Daily at {schedule_time}")
+        else:
+            st.info(" Manual delivery only - Use Custom Delivery page to send")
+
 def delivery_section_page():
     """First page - Delivery List for immediate delivery"""
     st.header("Delivery List")
-    st.markdown("Here are the scheduled daily reports. Click on any report to view details.")
+    st.markdown("Here are all your reports grouped by delivery mode. Click on any report to view details.")
     
     # Import report manager
     try:
@@ -296,123 +401,51 @@ def delivery_section_page():
         reports = report_manager.load_reports()
         
         if reports:
+            # Group reports by delivery mode
+            manual_reports = {}
+            scheduled_reports = {}
+            automatic_reports = {}
+            
             for report_id, report in reports.items():
-                # Create expandable section for each report
-                with st.expander(f"{report.get('name', report.get('thread_content', report_id))}", expanded=False):
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.write("**Author:**")
-                        st.code(report.get('author', ''))
-                    
-                    with col2:
-                        st.write("**Receiver:**")
-                        st.code(report.get('receiver', ''))
-                    
-                    with col3:
-                        st.write("**Link:**")
-                        if report.get('link'):
-                            st.code(report['link'])
-                        else:
-                            st.code("(No link)")
-                    
-                    # Add delivery statistics row
-                    stat_col1, stat_col2, stat_col3, stat_col4 = st.columns(4)
-                    
-                    with stat_col1:
-                        delivery_count = report.get('delivery_count', 0)
-                        st.metric("Total Deliveries", delivery_count)
-                    
-                    with stat_col2:
-                        last_delivered = report.get('last_delivered')
-                        if last_delivered:
-                            try:
-                                last_date = datetime.fromisoformat(last_delivered).strftime('%m/%d %H:%M')
-                                st.metric("Last Delivered", last_date)
-                            except:
-                                st.metric("Last Delivered", "Invalid date")
-                        else:
-                            st.metric("Last Delivered", "Never")
-                    
-                    with stat_col3:
-                        status = report.get('status', 'active')
-                        status_emoji = "[Active]" if status == 'active' else "[Inactive]" if status == 'inactive' else "[Other]"
-                        st.metric("Status", f"{status_emoji} {status.title()}")
-                    
-                    with stat_col4:
-                        delivery_mode = report.get('delivery_mode', 'manual')
-                        schedule_enabled = report.get('schedule_enabled', False)
-                        
-                        if delivery_mode == 'automatic':
-                            schedule_emoji = "[Auto]"
-                            schedule_text = "Automatic"
-                        elif delivery_mode == 'scheduled' or schedule_enabled:
-                            schedule_emoji = "[Scheduled]"
-                            schedule_text = "Scheduled"
-                        else:
-                            schedule_emoji = "[Manual]"
-                            schedule_text = "Manual"
-                        st.metric("Mode", f"{schedule_emoji} {schedule_text}")
-                            
-                        
-                    
-                    st.markdown("---")
-                    st.write("**Full Parameters (Read-Only):**")
-                    
-                    # Display all parameters in a clean format
-                    param_col1, param_col2 = st.columns(2)
-                    
-                    with param_col1:
-
-                        st.write("**Channel:**")
-                        if report.get('channel'):
-                            st.code(report['channel'])
-                        else:
-                            st.code("(Default channel)")
-
-                            
-                        st.write("**Raw Data Link:**")
-                        if report.get('raw_data_link'):
-                            st.code(report['raw_data_link'])
-                        else:
-                            st.code("(No raw data link)")
-
-                        st.write("**Schedule:**")
-                        delivery_mode = report.get('delivery_mode', 'manual')
-                        if delivery_mode == 'automatic':
-                            automatic_task_id = report.get('automatic_task_id', '')
-                            st.code(f"Automatic (Google Sheets: {automatic_task_id})")
-                        elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
-                            schedule_time = report.get('schedule_time', '09:00')
-                            st.code(f"Daily at {schedule_time}")
-                        else:
-                            st.code("(Manual delivery only)")
-                    
-                    with param_col2:
-                        st.write("**Thread:**")
-                        if report.get('thread_content'):
-                            st.code(report.get('thread_content', ''))
-                        else:
-                            st.code("(No thread content, sending as a new thread)")
-                            
-                        st.write("**Date:**")
-                        if report.get('date'):
-                            st.code(report['date'])
-                        else:
-                            st.code("(Current date)")
-                            
-                        
-                    
-                    # Schedule info
-                    delivery_mode = report.get('delivery_mode', 'manual')
-                    if delivery_mode == 'automatic':
-                        automatic_task_id = report.get('automatic_task_id', '')
-                        st.success(f"Automatic delivery enabled - Google Sheets task: {automatic_task_id}")
-                    elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
-                        schedule_time = report.get('schedule_time', '09:00')
-                        st.success(f"Scheduled delivery enabled - Daily at {schedule_time}")
-                    else:
-                        st.info("Manual delivery only - Use Custom Delivery page to send")
+                delivery_mode = report.get('delivery_mode', 'manual')
+                if delivery_mode == 'automatic':
+                    automatic_reports[report_id] = report
+                elif delivery_mode == 'scheduled' or report.get('schedule_enabled', False):
+                    scheduled_reports[report_id] = report
+                else:
+                    manual_reports[report_id] = report
+            
+            # Display Automatic Reports section
+            st.subheader(" Automatic Reports")
+            if automatic_reports:
+                st.success(f"{len(automatic_reports)} report(s) with automatic delivery via Google Sheets")
+                for report_id, report in automatic_reports.items():
+                    display_report_card(report_id, report)
+            else:
+                st.info("No automatic reports configured. Set delivery mode to 'Automatic' in Report Management.")
+            
+            st.markdown("---")
+            
+            # Display Scheduled Reports section  
+            st.subheader("Scheduled Reports")
+            if scheduled_reports:
+                st.success(f"{len(scheduled_reports)} report(s) with scheduled delivery")
+                for report_id, report in scheduled_reports.items():
+                    display_report_card(report_id, report)
+            else:
+                st.info("No scheduled reports configured. Set delivery mode to 'Scheduled' in Report Management.")
+            
+            st.markdown("---")
+            
+            # Display Manual Reports section
+            st.subheader(" Manual Reports")
+            if manual_reports:
+                st.info(f"{len(manual_reports)} report(s) for manual delivery only")
+                for report_id, report in manual_reports.items():
+                    display_report_card(report_id, report)
+            else:
+                st.info("No manual reports configured. Create reports in Report Management.")
+                
         else:
             st.info("No reports configured yet. Go to 'Report Management' to create reports.")
             
@@ -420,7 +453,6 @@ def delivery_section_page():
         st.error("Could not load report manager.")
     except Exception as e:
         st.error(f"Error loading reports: {e}")
-
 def delivery_parameters_page():
     """Second page - Report Management with modifying parameters"""
     st.header("Report Management")
