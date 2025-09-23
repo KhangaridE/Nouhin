@@ -398,9 +398,9 @@ def display_report_card(report_id, report):
                         # Find matching reports for this task ID
                         matching_deadlines = []
                         for sheet_report in reports_data:
-                            if sheet_report.get('task_name') == automatic_task_id:
-                                deadline = sheet_report.get('scheduled_time', 'No time')
-                                status = sheet_report.get('current_status', 'Unknown')
+                            if sheet_report.get('task_id') == automatic_task_id:
+                                deadline = sheet_report.get('delivery_time', 'No time')
+                                status = sheet_report.get('status', 'Unknown')
                                 matching_deadlines.append({
                                     'time': deadline,
                                     'status': status
@@ -1350,9 +1350,9 @@ def automatic_delivery_page():
                                     # Find matching reports for this task ID
                                     matching_deadlines = []
                                     for sheet_report in reports_data:
-                                        if sheet_report.get('task_name') == automatic_task_id:
-                                            deadline = sheet_report.get('scheduled_time', 'No time')
-                                            status = sheet_report.get('current_status', 'Unknown')
+                                        if sheet_report.get('task_id') == automatic_task_id:
+                                            deadline = sheet_report.get('delivery_time', 'No time')
+                                            status = sheet_report.get('status', 'Unknown')
                                             matching_deadlines.append({
                                                 'time': deadline,
                                                 'status': status

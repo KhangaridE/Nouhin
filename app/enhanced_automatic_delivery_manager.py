@@ -217,19 +217,18 @@ class EnhancedAutomaticDeliveryManager:
             reports_data = self.google_sheets.get_status_reports(status_url)
             
             for report_data in reports_data:
-                task_name = report_data.get('task_name', '')
+                task_id = report_data.get('task_id', '')
                 status = report_data.get('status', '')
                 delivery_time_str = report_data.get('delivery_time', '')
                 
-                # Check if this task name matches any of our automatic reports
+                # Check if this task ID matches any of our automatic reports
                 matching_report = None
                 matching_report_id = None
                 
                 for report_id, report in automatic_reports.items():
-                    # Try to match by name or by checking if task_name contains report name
-                    if (report.get('name', '') == task_name or 
-                        task_name in report.get('name', '') or
-                        report.get('name', '') in task_name):
+                    automatic_task_id = report.get('automatic_task_id', '')
+                    # Match by automatic_task_id from report configuration
+                    if automatic_task_id == task_id:
                         matching_report = report
                         matching_report_id = report_id
                         break
@@ -237,29 +236,29 @@ class EnhancedAutomaticDeliveryManager:
                 if not matching_report:
                     continue  # Skip reports not in our automatic delivery list
                 
-                print(f"Processing automatic report: {task_name}")
+                print(f"Processing automatic report: {task_id}")
                 
                 # Parse scheduled delivery time first (needed for delivery tracking)
                 scheduled_time = self.parse_scheduled_time(delivery_time_str)
                 if not scheduled_time:
-                    print(f"Could not parse delivery time for {task_name}: {delivery_time_str}")
+                    print(f"Could not parse delivery time for {task_id}: {delivery_time_str}")
                     continue
                 
                 # Check if already delivered today for this specific time
-                if self.is_already_delivered_today(task_name, scheduled_time):
-                    print(f"Report {task_name} already delivered today for {scheduled_time.strftime('%H:%M')}")
+                if self.is_already_delivered_today(task_id, scheduled_time):
+                    print(f"Report {task_id} already delivered today for {scheduled_time.strftime('%H:%M')}")
                     continue
                 
                 # Check if we should check now (5 minutes before scheduled time)
                 if not self.should_check_now(scheduled_time):
-                    print(f"Not time to check {task_name} yet (scheduled: {scheduled_time.strftime('%H:%M')})")
+                    print(f"Not time to check {task_id} yet (scheduled: {scheduled_time.strftime('%H:%M')})")
                     continue
                 
                 # Check if status is completed
                 if status != DELIVERY_CONFIG['completed_status']:  # Check for '完了'
-                    print(f"Report {task_name} not ready (status: {status})")
+                    print(f"Report {task_id} not ready (status: {status})")
                     results.append({
-                        'task_name': task_name,
+                        'task_name': task_id,
                         'report_id': matching_report_id,
                         'status': 'not_ready',
                         'current_status': status,
@@ -268,18 +267,18 @@ class EnhancedAutomaticDeliveryManager:
                     continue
                 
                 # All conditions met - deliver the report
-                print(f"Delivering report: {task_name} for {scheduled_time.strftime('%H:%M')} deadline")
+                print(f"Delivering report: {task_id} for {scheduled_time.strftime('%H:%M')} deadline")
                 
-                delivery_result = self.deliver_report(task_name, matching_report, report_data)
+                delivery_result = self.deliver_report(task_id, matching_report, report_data)
                 
                 if delivery_result.get('success'):
-                    self.mark_as_delivered(task_name, delivery_result, scheduled_time)
-                    print(f"Successfully delivered {task_name} for {scheduled_time.strftime('%H:%M')}")
+                    self.mark_as_delivered(task_id, delivery_result, scheduled_time)
+                    print(f"Successfully delivered {task_id} for {scheduled_time.strftime('%H:%M')}")
                 else:
-                    print(f"Failed to deliver {task_name}: {delivery_result.get('error')}")
+                    print(f"Failed to deliver {task_id}: {delivery_result.get('error')}")
                 
                 results.append({
-                    'task_name': task_name,
+                    'task_name': task_id,
                     'report_id': matching_report_id,
                     'status': 'delivered' if delivery_result.get('success') else 'failed',
                     'scheduled_time': scheduled_time.isoformat(),
