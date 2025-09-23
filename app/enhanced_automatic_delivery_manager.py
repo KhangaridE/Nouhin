@@ -29,8 +29,18 @@ class EnhancedAutomaticDeliveryManager:
     """Enhanced manager for time-based automatic deliveries"""
     
     def __init__(self):
-        self.google_sheets = GoogleSheetsService()
-        self.github_storage = GitHubStorage() if 'GitHubStorage' in globals() else None
+        try:
+            self.google_sheets = GoogleSheetsService()
+        except NameError:
+            print("GoogleSheetsService not available")
+            self.google_sheets = None
+            
+        try:
+            self.github_storage = GitHubStorage()
+        except NameError:
+            print("GitHubStorage not available")
+            self.github_storage = None
+            
         self.delivery_log_file = 'automatic_delivery_log.json'
         self.jst = pytz.timezone('Asia/Tokyo')
     
@@ -69,7 +79,14 @@ class EnhancedAutomaticDeliveryManager:
         """Load delivery log from GitHub storage"""
         try:
             if self.github_storage:
-                return self.github_storage.read_file(self.delivery_log_file) or {}
+                log_data = self.github_storage.read_file(self.delivery_log_file)
+                if log_data is None:
+                    # File doesn't exist, create initial empty log
+                    print(f"Creating initial {self.delivery_log_file} in GitHub repo")
+                    initial_log = {}
+                    self.save_delivery_log(initial_log)
+                    return initial_log
+                return log_data
             return {}
         except Exception as e:
             print(f"Error loading delivery log: {e}")

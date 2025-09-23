@@ -86,6 +86,11 @@ class GitHubStorage:
             return data
             
         except requests.exceptions.RequestException as e:
+            # Handle 404 (file not found) silently - this is expected for new files
+            if hasattr(e, 'response') and e.response.status_code == 404:
+                print(f"File {file_path} not found in GitHub repo (will be created when needed)")
+                return None
+            
             error_msg = f"Error reading file {file_path} from GitHub: {e}"
             try:
                 st.error(error_msg)
