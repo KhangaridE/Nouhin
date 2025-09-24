@@ -58,10 +58,11 @@ jobs:
         print(f'🕐 Checking at {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S JST\")}')
         
         try:
-            from enhanced_automatic_delivery_manager import enhanced_automatic_delivery_manager
+            from enhanced_automatic_delivery_manager import EnhancedAutomaticDeliveryManager
             
-            # This will only process if we're within 5 minutes of any deadline
-            results = enhanced_automatic_delivery_manager.process_automatic_deliveries()
+            # Create manager instance and process deliveries
+            manager = EnhancedAutomaticDeliveryManager()
+            results = manager.process_automatic_deliveries()
             
             delivered_count = sum(1 for r in results if r.get('status') == 'delivered')
             not_ready_count = sum(1 for r in results if r.get('status') == 'not_ready')  
