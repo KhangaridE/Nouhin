@@ -141,6 +141,38 @@ class EnhancedAutomaticDeliveryManager:
         }
         
         self.save_delivery_log(log)
+        
+        # Also record to main delivery logs for history page visibility
+        try:
+            from delivery_logs_manager import DeliveryLogsManager
+            logs_manager = DeliveryLogsManager()
+            
+            # Determine status based on delivery_info
+            if isinstance(delivery_info, dict):
+                if delivery_info.get('success') or delivery_info.get('delivery_method') == 'manual_test':
+                    status = 'success'
+                    message = f" Automatic delivery (Task ID: {delivery_info.get('task_id', report_name)})"
+                else:
+                    status = 'failed' 
+                    message = f" Automatic delivery failed: {delivery_info.get('error', 'Unknown error')}"
+            else:
+                status = 'success'
+                message = f" Automatic delivery (Task: {report_name})"
+            
+            # Add to main delivery logs
+            time_str = scheduled_time.strftime('%H:%M') if scheduled_time else 'Unknown'
+            logs_manager.add_log_entry(
+                report_id=delivery_key,  # Use our unique key as report_id
+                report_name=report_name,
+                status=status,
+                scheduled_time=time_str,
+                message=message
+            )
+            print(f"✅ Recorded automatic delivery to main delivery logs: {delivery_key}")
+            
+        except Exception as e:
+            print(f"⚠️ Warning: Could not record to main delivery logs: {e}")
+            # Don't fail the delivery if logging fails
     
     def should_check_now(self, scheduled_time: datetime) -> bool:
         """Check if we're in the 5-minute delivery window (e.g., 17:25-17:29 for 17:30 deadline)"""
@@ -196,7 +228,7 @@ class EnhancedAutomaticDeliveryManager:
             all_reports = report_manager.load_reports()
             automatic_reports = {
                 report_id: report for report_id, report in all_reports.items() 
-                if report.get('delivery_mode') == 'Automatic'
+                if report.get('delivery_mode') == 'automatic'
             }
             
             if not automatic_reports:
@@ -205,12 +237,19 @@ class EnhancedAutomaticDeliveryManager:
             
             print(f"Found {len(automatic_reports)} reports in automatic mode")
             
-            # Get Google Sheets URLs from secrets
+            # Get Google Sheets URLs from environment or secrets
             import streamlit as st
-            status_url = st.secrets.get("GOOGLE_SHEETS_STATUS_URL") if hasattr(st, 'secrets') else None
+            import os
+            
+            # Try environment variable first (for GitHub Actions), then Streamlit secrets
+            status_url = os.environ.get('AUTOMATIC_DELIVERY_STATUS_SHEET_URL')
+            if not status_url and hasattr(st, 'secrets'):
+                status_url = st.secrets.get("GOOGLE_SHEETS_STATUS_URL")
             
             if not status_url:
                 print("❌ Google Sheets Status URL not configured")
+                print("   - GitHub Actions: Set AUTOMATIC_DELIVERY_STATUS_SHEET_URL secret")
+                print("   - Streamlit: Set GOOGLE_SHEETS_STATUS_URL in secrets.toml")
                 return []
             
             # Read reports from Google Sheets
@@ -354,23 +393,47 @@ class EnhancedAutomaticDeliveryManager:
                 message_parts.append(f"Raw Data: {raw_data_link}")
             
             # Add automatic delivery info
-            message_parts.append(f"🤖 Automatic delivery triggered by status '完了' at {self.get_current_jst_time().strftime('%H:%M JST')}")
+            message_parts.append(f" Automatic delivery triggered by status '完了' at {self.get_current_jst_time().strftime('%H:%M JST')}")
             
             message = '\n'.join(message_parts)
             
-            # Use SlackDeliverySimple to send
-            slack_delivery = SlackDeliverySimple()
+            # Import and use SlackDeliverySimple to send
+            try:
+                import sys
+                sys.path.insert(0, 'delivery')
+                from slack_delivery_simple import SlackDeliverySimple
+                
+                # Use configured channel or default
+                target_channel = channel if channel else os.getenv('DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID')
+                if not target_channel:
+                    return {'success': False, 'error': 'No channel configured'}
+                
+                # Initialize SlackDeliverySimple with proper channel handling
+                if target_channel.startswith('C'):
+                    # It's a channel ID, use default constructor and set channel_id
+                    slack_delivery = SlackDeliverySimple()
+                    slack_delivery.channel_id = target_channel
+                else:
+                    # It's a channel name, use constructor with channel_name parameter
+                    slack_delivery = SlackDeliverySimple(channel_name=target_channel)
+                
+            except ImportError as e:
+                return {'success': False, 'error': f'Could not import SlackDeliverySimple: {e}'}
+            except Exception as e:
+                return {'success': False, 'error': f'Could not initialize SlackDeliverySimple: {e}'}
             
-            # Use configured channel or default
-            target_channel = channel if channel else os.getenv('DELIVERY_TEST_SLACK_DEFAULT_CHANNEL_ID')
-            if not target_channel:
-                return {'success': False, 'error': 'No channel configured'}
+            # Prepare data for SlackDeliverySimple
+            authors = ", ".join(author_mentions) if author_mentions else "Unknown"
+            receivers = ", ".join(receiver_mentions) if receiver_mentions else "Unknown"
             
-            # Send message
-            result = slack_delivery.send_message(
-                channel_id=target_channel,
-                message=message,
-                thread_ts=thread_ts if thread_ts else None
+            # Send message using send_type1_message
+            result = slack_delivery.send_type1_message(
+                file_link=link,
+                author=authors,
+                receiver=receivers,
+                thread_content=thread_content if thread_content else None,
+                thread_ts=thread_ts if thread_ts else None,
+                raw_data_link=raw_data_link if raw_data_link else None
             )
             
             return {
